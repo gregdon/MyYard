@@ -14,7 +14,6 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 
 export function EditorPage() {
   const viewMode = useUIStore((s) => s.viewMode)
-  const selectedObjectId = useUIStore((s) => s.selectedObjectId)
   const placedObjects = useDesignStore((s) => s.placedObjects)
   const { saveDesign } = useDesignIO()
   useKeyboardShortcuts()

@@ -54,7 +54,7 @@ export function validateDesignFile(data: unknown): ValidationResult {
         break
       }
       for (let c = 0; c < grid[r].length; c++) {
-        if (!matSet.has(grid[r][c] as string)) {
+        if (!matSet.has(grid[r][c] as typeof MATERIAL_VALUES[number])) {
           errors.push(`Invalid material "${grid[r][c]}" at [${r}][${c}]`)
           if (errors.length > 10) return { valid: false, errors }
         }

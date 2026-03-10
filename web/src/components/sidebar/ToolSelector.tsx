@@ -28,7 +28,7 @@ export function ToolSelector() {
   const fillMode = useUIStore((s) => s.fillMode)
   const setFillMode = useUIStore((s) => s.setFillMode)
 
-  const showFillToggle = [ToolMode.Rectangle, ToolMode.Circle, ToolMode.Polygon].includes(activeTool)
+  const showFillToggle = ([ToolMode.Rectangle, ToolMode.Circle, ToolMode.Polygon] as ToolMode[]).includes(activeTool)
 
   return (
     <div className="space-y-3">

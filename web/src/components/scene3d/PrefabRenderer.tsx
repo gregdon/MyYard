@@ -1,3 +1,4 @@
+import type React from 'react'
 import * as THREE from 'three'
 import { useDesignStore } from '@/store/designStore'
 import { PREFAB_CATALOG } from '@/constants/prefabs'
@@ -56,7 +57,7 @@ function renderPrefab(
   _prefab: (typeof PREFAB_CATALOG)[number],
   widthFt: number, depthFt: number, heightFt: number,
   color: THREE.Color,
-): JSX.Element | null {
+): React.JSX.Element | null {
 
         if (obj.type === 'pergola') {
           return <PergolaMesh key={obj.id} obj={obj} color={color} />
@@ -277,7 +278,7 @@ function renderPrefab(
           const baseH = heightFt * 0.3
 
           // Deterministic pseudo-random scatter based on object dimensions
-          const plants: JSX.Element[] = []
+          const plants: React.JSX.Element[] = []
           const countW = Math.max(2, Math.floor(widthFt / 0.8))
           const countD = Math.max(2, Math.floor(depthFt / 0.8))
           let idx = 0
@@ -694,7 +695,7 @@ function PatioCoverMesh({ obj, color }: { obj: PlacedObject3D; color: THREE.Colo
           const fasciaH = rafterH + roofThickness
           const fasciaThick = 0.1
           const oh = overhang
-          const els: JSX.Element[] = []
+          const els: React.JSX.Element[] = []
 
           // Front fascia (at front rafter height)
           els.push(
@@ -863,7 +864,7 @@ function WallSegment({
   }
 
   // Build wall pieces column by column around openings
-  const els: JSX.Element[] = []
+  const els: React.JSX.Element[] = []
   let prevRight = -wallW / 2
 
   for (let i = 0; i < features.length; i++) {
@@ -1857,7 +1858,7 @@ function ChairMesh({ obj, color }: { obj: PlacedObject3D; color: THREE.Color }) 
             const segments = 12
             const arcRadius = depthFt * 1.8
             const arcSpan = 0.7 // radians total
-            const els: JSX.Element[] = []
+            const els: React.JSX.Element[] = []
             for (let i = 0; i < segments; i++) {
               const t = (i + 0.5) / segments
               const angle = -arcSpan / 2 + arcSpan * t
