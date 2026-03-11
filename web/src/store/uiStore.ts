@@ -4,6 +4,7 @@ import { Material } from '@/types/materials'
 import { ToolMode } from '@/types/tools'
 import type { ViewMode, FillMode, RightDrawer } from '@/types/tools'
 import type { PlacedObject3D } from '@/types/design'
+import type { RibbonTab } from '@/types/ribbon'
 
 /** Clipboard entry — a snapshot of a placed object (without id/position, assigned on paste) */
 export interface ClipboardObject {
@@ -27,6 +28,8 @@ interface UIState {
   selectedObjectId: string | null
   clipboard: ClipboardObject | null
   sideNavCollapsed: boolean
+  activeRibbonTab: RibbonTab
+  fileBackstageOpen: boolean
 
   setViewMode: (mode: ViewMode) => void
   setActiveTool: (tool: ToolMode) => void
@@ -42,6 +45,8 @@ interface UIState {
   copyObject: (obj: PlacedObject3D) => void
   setSideNavCollapsed: (collapsed: boolean) => void
   toggleSideNav: () => void
+  setActiveRibbonTab: (tab: RibbonTab) => void
+  setFileBackstageOpen: (open: boolean) => void
 }
 
 export const useUIStore = create<UIState>()(subscribeWithSelector((set, get) => ({
@@ -57,6 +62,8 @@ export const useUIStore = create<UIState>()(subscribeWithSelector((set, get) => 
   selectedObjectId: null,
   clipboard: null,
   sideNavCollapsed: false,
+  activeRibbonTab: 'home',
+  fileBackstageOpen: false,
 
   setViewMode: (mode) => set({ viewMode: mode }),
   setActiveTool: (tool) => set({ activeTool: tool }),
@@ -74,6 +81,8 @@ export const useUIStore = create<UIState>()(subscribeWithSelector((set, get) => 
   setSelectedObjectId: (id) => set({ selectedObjectId: id }),
   setSideNavCollapsed: (collapsed) => set({ sideNavCollapsed: collapsed }),
   toggleSideNav: () => set((s) => ({ sideNavCollapsed: !s.sideNavCollapsed })),
+  setActiveRibbonTab: (tab) => set({ activeRibbonTab: tab }),
+  setFileBackstageOpen: (open) => set({ fileBackstageOpen: open }),
   copyObject: (obj) => set({
     clipboard: {
       type: obj.type,
