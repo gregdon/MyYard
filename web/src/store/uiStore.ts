@@ -26,6 +26,7 @@ interface UIState {
   customColor: string
   selectedObjectId: string | null
   clipboard: ClipboardObject | null
+  sideNavCollapsed: boolean
 
   setViewMode: (mode: ViewMode) => void
   setActiveTool: (tool: ToolMode) => void
@@ -39,6 +40,8 @@ interface UIState {
   setCustomColor: (color: string) => void
   setSelectedObjectId: (id: string | null) => void
   copyObject: (obj: PlacedObject3D) => void
+  setSideNavCollapsed: (collapsed: boolean) => void
+  toggleSideNav: () => void
 }
 
 export const useUIStore = create<UIState>()(subscribeWithSelector((set, get) => ({
@@ -53,6 +56,7 @@ export const useUIStore = create<UIState>()(subscribeWithSelector((set, get) => 
   customColor: '#ff69b4',
   selectedObjectId: null,
   clipboard: null,
+  sideNavCollapsed: false,
 
   setViewMode: (mode) => set({ viewMode: mode }),
   setActiveTool: (tool) => set({ activeTool: tool }),
@@ -68,6 +72,8 @@ export const useUIStore = create<UIState>()(subscribeWithSelector((set, get) => 
   setZoomLevel: (zoom) => set({ zoomLevel: zoom }),
   setCustomColor: (color) => set({ customColor: color }),
   setSelectedObjectId: (id) => set({ selectedObjectId: id }),
+  setSideNavCollapsed: (collapsed) => set({ sideNavCollapsed: collapsed }),
+  toggleSideNav: () => set((s) => ({ sideNavCollapsed: !s.sideNavCollapsed })),
   copyObject: (obj) => set({
     clipboard: {
       type: obj.type,

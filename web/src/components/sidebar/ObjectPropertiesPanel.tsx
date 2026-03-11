@@ -4,7 +4,8 @@ import { useHistoryStore } from '@/store/historyStore'
 import { PREFAB_CATALOG } from '@/constants/prefabs'
 import type { PropDef } from '@/types/prefabs'
 import { cn } from '@/lib/utils'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Pencil, Check } from 'lucide-react'
+import { useState } from 'react'
 
 export function ObjectPropertiesPanel() {
   const selectedObjectId = useUIStore((s) => s.selectedObjectId)
@@ -14,8 +15,32 @@ export function ObjectPropertiesPanel() {
   const removePlacedObject = useDesignStore((s) => s.removePlacedObject)
   const pushSnapshot = useHistoryStore((s) => s.pushSnapshot)
 
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState('')
+
   const obj = placedObjects.find(o => o.id === selectedObjectId)
   const prefab = obj ? PREFAB_CATALOG.find(p => p.type === obj.type) : null
+
+  // Build display label for an object — custom name > prefab label + index
+  const getObjectLabel = (o: typeof placedObjects[number]) => {
+    if (o.name) return o.name
+    const p = PREFAB_CATALOG.find(c => c.type === o.type)
+    const sameType = placedObjects.filter(x => x.type === o.type)
+    const idx = sameType.findIndex(x => x.id === o.id)
+    return sameType.length > 1 ? `${p?.label ?? o.type} ${idx + 1}` : (p?.label ?? o.type)
+  }
+
+  const startEditing = () => {
+    setNameInput(obj?.name ?? '')
+    setEditingName(true)
+  }
+
+  const commitName = () => {
+    if (obj) {
+      updatePlacedObject(obj.id, { name: nameInput.trim() || undefined })
+    }
+    setEditingName(false)
+  }
 
   // Object selector dropdown — always shown when objects exist
   const objectSelector = placedObjects.length > 0 && (
@@ -27,14 +52,11 @@ export function ObjectPropertiesPanel() {
         className="h-8 w-full rounded-md border bg-background px-2 text-xs"
       >
         <option value="">— None —</option>
-        {placedObjects.map((o) => {
-          const p = PREFAB_CATALOG.find(c => c.type === o.type)
-          return (
-            <option key={o.id} value={o.id}>
-              {p?.label ?? o.type}
-            </option>
-          )
-        })}
+        {placedObjects.map((o) => (
+          <option key={o.id} value={o.id}>
+            {getObjectLabel(o)}
+          </option>
+        ))}
       </select>
     </div>
   )
@@ -56,7 +78,6 @@ export function ObjectPropertiesPanel() {
       customProps: { [key]: value },
     }
 
-    // Auto-resize table bounding box based on shape/dimensions
     if (obj.type === 'dining_table' || obj.type === 'end_table' || obj.type === 'coffee_table') {
       const defaults = obj.type === 'end_table'
         ? { shape: 'round', diameter: 20, tableLength: 24, tableWidth: 18, sideLength: 20 }
@@ -80,7 +101,6 @@ export function ObjectPropertiesPanel() {
       }
     }
 
-    // Auto-resize fire pit bounding box based on shape/dimensions
     if (obj.type === 'fire_pit') {
       const shape = key === 'shape' ? (value as string) : (obj.customProps?.shape as string) ?? 'round'
       const diameter = key === 'diameter' ? (value as number) : (obj.customProps?.diameter as number) ?? 48
@@ -101,7 +121,6 @@ export function ObjectPropertiesPanel() {
       }
     }
 
-    // Auto-resize post bounding box based on size/height
     if (obj.type === 'post') {
       const postSize = key === 'postSize' ? (value as number) : (obj.customProps?.postSize as number) ?? 6
       const postHeight = key === 'postHeight' ? (value as number) : (obj.customProps?.postHeight as number) ?? 8
@@ -109,7 +128,6 @@ export function ObjectPropertiesPanel() {
       updates.size = { widthFt: s, depthFt: s, heightFt: postHeight }
     }
 
-    // Auto-resize tree bounding box based on size preset
     if (obj.type === 'tree_small' && key === 'treeSize') {
       const sizes: Record<string, { w: number; h: number }> = {
         small: { w: 3, h: 8 },
@@ -120,7 +138,6 @@ export function ObjectPropertiesPanel() {
       updates.size = { widthFt: s.w, depthFt: s.w, heightFt: s.h }
     }
 
-    // Auto-resize retaining wall bounding box based on inch dimensions
     if (obj.type === 'retaining_wall') {
       const wallLength = key === 'wallLength' ? (value as number) : (obj.customProps?.wallLength as number) ?? 120
       const wallHeight = key === 'wallHeight' ? (value as number) : (obj.customProps?.wallHeight as number) ?? 24
@@ -128,13 +145,11 @@ export function ObjectPropertiesPanel() {
       updates.size = { widthFt: wallLength / 12, depthFt: wallThickness / 12, heightFt: wallHeight / 12 }
     }
 
-    // Auto-resize wall bounding box when shape changes
     if (obj.type === 'wall' && key === 'shape') {
       const thickness = (obj.customProps?.thickness as number) ?? 1
       if (value === 'straight') {
         updates.size = { ...obj.size, depthFt: thickness }
       } else if (value === 'l_shape' || value === 'u_shape') {
-        // Expand depth to match width if it's too small for L/U shape
         if (obj.size.depthFt < 4) {
           updates.size = { ...obj.size, depthFt: Math.max(obj.size.widthFt, 8) }
         }
@@ -155,53 +170,71 @@ export function ObjectPropertiesPanel() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {objectSelector}
 
-      <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold">{prefab.label}</h4>
-        <button
-          onClick={handleDelete}
-          className="rounded p-1 text-destructive hover:bg-destructive/10"
-          aria-label="Delete object"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
+      {/* Object header: name + delete */}
+      <div className="space-y-1">
+        <label className="text-[10px] font-medium uppercase text-muted-foreground">Name</label>
+        <div className="flex items-center gap-1.5">
+          {editingName ? (
+            <>
+              <input
+                autoFocus
+                type="text"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') commitName(); if (e.key === 'Escape') setEditingName(false) }}
+                placeholder={prefab.label}
+                className="h-7 flex-1 rounded-md border bg-background px-2 text-xs"
+              />
+              <button
+                onClick={commitName}
+                className="rounded p-1 text-primary hover:bg-primary/10"
+                aria-label="Save name"
+              >
+                <Check className="h-3.5 w-3.5" />
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="flex-1 truncate text-sm font-semibold">
+                {getObjectLabel(obj)}
+              </span>
+              <button
+                onClick={startEditing}
+                className="rounded p-1 text-muted-foreground hover:bg-accent"
+                aria-label="Edit name"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={handleDelete}
+                className="rounded p-1 text-destructive hover:bg-destructive/10"
+                aria-label="Delete object"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Size controls */}
       {prefab.resizable && (
-        <div className="space-y-4">
-          <label className="text-[10px] font-medium uppercase text-muted-foreground">Size</label>
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-medium uppercase text-muted-foreground">Size (ft)</label>
           <div className="grid grid-cols-3 gap-1.5">
-            <SizeInput
-              label="W"
-              value={obj.size.widthFt}
-              min={prefab.minSize.widthFt}
-              max={prefab.maxSize.widthFt}
-              onChange={(v) => handleSizeChange('widthFt', v)}
-            />
-            <SizeInput
-              label="D"
-              value={obj.size.depthFt}
-              min={prefab.minSize.depthFt}
-              max={prefab.maxSize.depthFt}
-              onChange={(v) => handleSizeChange('depthFt', v)}
-            />
-            <SizeInput
-              label="H"
-              value={obj.size.heightFt}
-              min={prefab.minSize.heightFt}
-              max={prefab.maxSize.heightFt}
-              onChange={(v) => handleSizeChange('heightFt', v)}
-            />
+            <SizeInput label="W" value={obj.size.widthFt} min={prefab.minSize.widthFt} max={prefab.maxSize.widthFt} onChange={(v) => handleSizeChange('widthFt', v)} />
+            <SizeInput label="D" value={obj.size.depthFt} min={prefab.minSize.depthFt} max={prefab.maxSize.depthFt} onChange={(v) => handleSizeChange('depthFt', v)} />
+            <SizeInput label="H" value={obj.size.heightFt} min={prefab.minSize.heightFt} max={prefab.maxSize.heightFt} onChange={(v) => handleSizeChange('heightFt', v)} />
           </div>
         </div>
       )}
 
       {/* Rotation */}
       {prefab.rotatable && (
-        <div className="space-y-4">
+        <div className="space-y-1.5">
           <label className="text-[10px] font-medium uppercase text-muted-foreground">Rotation</label>
           <div className="flex items-center gap-2">
             <input
@@ -212,20 +245,17 @@ export function ObjectPropertiesPanel() {
               value={((Math.round((obj.rotation[1] * 180) / Math.PI) % 360) + 360) % 360}
               onChange={(e) => {
                 const deg = ((Number(e.target.value) % 360) + 360) % 360
-                updatePlacedObject(obj.id, {
-                  rotation: [0, (deg * Math.PI) / 180, 0],
-                })
+                updatePlacedObject(obj.id, { rotation: [0, (deg * Math.PI) / 180, 0] })
               }}
               className="h-7 w-16 rounded-md border bg-background px-1.5 text-center text-xs"
             />
-            <span className="text-xs text-muted-foreground">° (drag handle on canvas)</span>
+            <span className="text-xs text-muted-foreground">° (or drag on canvas)</span>
           </div>
         </div>
       )}
 
-      {/* Custom editable props */}
+      {/* Custom props */}
       {prefab.editableProps?.filter((prop) => {
-        // Kitchen egg stand: hide side/height when stand is off
         if ((obj.type === 'kitchen_straight' || obj.type === 'kitchen_l_shaped') &&
           (prop.key === 'eggMounting' || prop.key === 'eggStandSide' || prop.key === 'eggStandHeight' || prop.key === 'eggStandWidth')) {
           return (obj.customProps?.hasEggStand as boolean) ?? false
@@ -256,28 +286,20 @@ export function ObjectPropertiesPanel() {
         if (obj.type !== 'wall') return true
         const shape = (obj.customProps?.shape as string) ?? 'straight'
         const winCount = (obj.customProps?.windowCount as number) ?? 0
-        // Only show L Corner when shape is L
         if (prop.key === 'lSide') return shape === 'l_shape'
-        // Window count available for all shapes
         if (prop.key === 'windowCount') return true
-        // Only show window layout when there are windows
         if (prop.key === 'windowLayout') return winCount > 0
-        // Wall segment toggles: only for L/U shapes with windows
         if (prop.key === 'windowWall1') return winCount > 0 && shape !== 'straight'
         if (prop.key === 'windowWall2') return winCount > 0 && (shape === 'l_shape' || shape === 'u_shape')
         if (prop.key === 'windowWall3') return winCount > 0 && shape === 'u_shape'
-        // Door props
         const hasDoor = (obj.customProps?.hasDoor as boolean) ?? false
         if (prop.key === 'doorType' || prop.key === 'doorPosition') return hasDoor
         if (prop.key === 'doorWall') return hasDoor && shape !== 'straight'
-        // TV props
         const hasTV = (obj.customProps?.hasTV as boolean) ?? false
         if (prop.key === 'tvSize') return hasTV
         return true
       }).map((prop) => {
-        // Dynamic labels
         let label = prop.label
-        // Fireplace: relabel hearthHeight based on hasHearth toggle
         if (obj.type === 'fireplace' && prop.key === 'hearthHeight') {
           const hasHearth = (obj.customProps?.hasHearth as boolean) ?? true
           label = hasHearth ? 'Hearth Height (in)' : 'Opening Height from Ground (in)'
@@ -295,7 +317,6 @@ export function ObjectPropertiesPanel() {
             if (prop.key === 'windowWall2') label = 'Windows: Back Wall'
             if (prop.key === 'windowWall3') label = 'Windows: Right Wall'
           }
-          // Door wall labels
           if (prop.key === 'doorWall') {
             if (shape === 'l_shape') {
               const side = (obj.customProps?.lSide as string) ?? 'left'
@@ -305,100 +326,98 @@ export function ObjectPropertiesPanel() {
             }
           }
         }
+
         return (
-        <div key={prop.key} className="space-y-4">
-          <label className="text-[10px] font-medium uppercase text-muted-foreground">
-            {label}
-          </label>
-          {prop.type === 'select' && prop.options && (
-            <div className="flex flex-wrap gap-1">
-              {prop.options.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => handlePropChange(prop.key, opt.value)}
-                  className={cn(
-                    'rounded-md px-2 py-1 text-xs transition-colors',
-                    getPropValue(prop) === opt.value
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted hover:bg-muted/80'
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          )}
-          {prop.type === 'number' && (() => {
-            const numVal = getPropValue(prop) as number
-            const isInchProp = prop.label?.toLowerCase().includes('(in)')
-            const ftDisplay = isInchProp ? `${Math.floor(numVal / 12)}'${numVal % 12}"` : null
-            return (
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="range"
-                    min={prop.min}
-                    max={prop.max}
-                    step={prop.step}
-                    value={numVal}
-                    onChange={(e) => handlePropChange(prop.key, Number(e.target.value))}
-                    className="h-1.5 flex-1"
-                  />
-                  <input
-                    type="number"
-                    min={prop.min}
-                    max={prop.max}
-                    step={prop.step}
-                    value={numVal}
-                    onChange={(e) => handlePropChange(prop.key, Number(e.target.value))}
-                    className="h-6 w-14 rounded border bg-background px-1 text-center text-xs"
-                  />
-                </div>
-                {ftDisplay && (
-                  <span className="text-[10px] text-muted-foreground">{ftDisplay}</span>
-                )}
+          <div key={prop.key} className="space-y-1.5">
+            <label className="text-[10px] font-medium uppercase text-muted-foreground">
+              {label}
+            </label>
+
+            {prop.type === 'select' && prop.options && (
+              <div className="flex flex-wrap gap-1">
+                {prop.options.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => handlePropChange(prop.key, opt.value)}
+                    className={cn(
+                      'rounded-md px-2 py-1 text-xs transition-colors',
+                      getPropValue(prop) === opt.value
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80'
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
-            )
-          })()}
-          {prop.type === 'color' && (
-            <input
-              type="color"
-              value={getPropValue(prop) as string}
-              onChange={(e) => handlePropChange(prop.key, e.target.value)}
-              className="h-7 w-full cursor-pointer rounded-md border"
-            />
-          )}
-          {prop.type === 'boolean' && (
-            <button
-              onClick={() => handlePropChange(prop.key, !(getPropValue(prop) as boolean))}
-              className={cn(
-                'mt-1 rounded-md px-3 py-1 text-xs transition-colors',
-                getPropValue(prop)
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted hover:bg-muted/80'
-              )}
-            >
-              {getPropValue(prop) ? 'On' : 'Off'}
-            </button>
-          )}
-        </div>
-      )})}
+            )}
+
+            {prop.type === 'number' && (() => {
+              const numVal = getPropValue(prop) as number
+              const isInchProp = prop.label?.toLowerCase().includes('(in)')
+              const ftDisplay = isInchProp ? `${Math.floor(numVal / 12)}'${numVal % 12}"` : null
+              return (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min={prop.min}
+                      max={prop.max}
+                      step={prop.step}
+                      value={numVal}
+                      onChange={(e) => handlePropChange(prop.key, Number(e.target.value))}
+                      className="h-1.5 flex-1"
+                    />
+                    <input
+                      type="number"
+                      min={prop.min}
+                      max={prop.max}
+                      step={prop.step}
+                      value={numVal}
+                      onChange={(e) => handlePropChange(prop.key, Number(e.target.value))}
+                      className="h-6 w-14 rounded border bg-background px-1 text-center text-xs"
+                    />
+                  </div>
+                  {ftDisplay && (
+                    <span className="text-[10px] text-muted-foreground">{ftDisplay}</span>
+                  )}
+                </div>
+              )
+            })()}
+
+            {prop.type === 'color' && (
+              <input
+                type="color"
+                value={getPropValue(prop) as string}
+                onChange={(e) => handlePropChange(prop.key, e.target.value)}
+                className="h-7 w-full cursor-pointer rounded-md border"
+              />
+            )}
+
+            {prop.type === 'boolean' && (
+              <button
+                onClick={() => handlePropChange(prop.key, !(getPropValue(prop) as boolean))}
+                className={cn(
+                  'rounded-md px-3 py-1 text-xs transition-colors',
+                  getPropValue(prop)
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted hover:bg-muted/80'
+                )}
+              >
+                {getPropValue(prop) ? 'On' : 'Off'}
+              </button>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
 
 function SizeInput({
-  label,
-  value,
-  min,
-  max,
-  onChange,
+  label, value, min, max, onChange,
 }: {
-  label: string
-  value: number
-  min: number
-  max: number
-  onChange: (v: number) => void
+  label: string; value: number; min: number; max: number; onChange: (v: number) => void
 }) {
   return (
     <div className="flex flex-col items-center gap-0.5">
