@@ -156,6 +156,14 @@ export function ObjectPropertiesPanel() {
       }
     }
 
+    if ((obj.type === 'planter_box' || obj.type === 'planter_l_shaped') && key === 'planterHeight') {
+      updates.size = { ...obj.size, heightFt: (value as number) / 12 }
+    }
+
+    if (obj.type === 'rock_bed' && key === 'bedHeight') {
+      updates.size = { ...obj.size, heightFt: (value as number) / 12 }
+    }
+
     updatePlacedObject(obj.id, updates)
   }
 
@@ -225,9 +233,21 @@ export function ObjectPropertiesPanel() {
         <div className="space-y-1.5">
           <label className="text-[10px] font-medium uppercase text-muted-foreground">Size (ft)</label>
           <div className="grid grid-cols-3 gap-1.5">
-            <SizeInput label="W" value={obj.size.widthFt} min={prefab.minSize.widthFt} max={prefab.maxSize.widthFt} onChange={(v) => handleSizeChange('widthFt', v)} />
-            <SizeInput label="D" value={obj.size.depthFt} min={prefab.minSize.depthFt} max={prefab.maxSize.depthFt} onChange={(v) => handleSizeChange('depthFt', v)} />
-            <SizeInput label="H" value={obj.size.heightFt} min={prefab.minSize.heightFt} max={prefab.maxSize.heightFt} onChange={(v) => handleSizeChange('heightFt', v)} />
+            {(() => {
+              const isKitchen = obj.type === 'kitchen_straight' || obj.type === 'kitchen_l_shaped'
+              const isWall = obj.type === 'wall' || obj.type === 'pony_wall' || obj.type === 'tv_wall'
+              const hideH = obj.type === 'planter_box' || obj.type === 'planter_l_shaped' || obj.type === 'rock_bed' // height controlled by inch prop
+              const wLabel = isKitchen ? 'Hz' : isWall ? 'L' : 'W'
+              const dLabel = isKitchen ? 'Vt' : isWall ? 'D' : 'D'
+              const hLabel = isKitchen ? 'Ht' : 'H'
+              return (
+                <>
+                  <SizeInput label={wLabel} value={obj.size.widthFt} min={prefab.minSize.widthFt} max={prefab.maxSize.widthFt} onChange={(v) => handleSizeChange('widthFt', v)} />
+                  <SizeInput label={dLabel} value={obj.size.depthFt} min={prefab.minSize.depthFt} max={prefab.maxSize.depthFt} onChange={(v) => handleSizeChange('depthFt', v)} />
+                  {!hideH && <SizeInput label={hLabel} value={obj.size.heightFt} min={prefab.minSize.heightFt} max={prefab.maxSize.heightFt} onChange={(v) => handleSizeChange('heightFt', v)} />}
+                </>
+              )
+            })()}
           </div>
         </div>
       )}
@@ -274,6 +294,19 @@ export function ObjectPropertiesPanel() {
           if (prop.key === 'sideLength') return pitShape === 'square'
           return true
         }
+        if (obj.type === 'tv_wall') {
+          if (prop.key === 'tvSize' || prop.key === 'tvVertical' || prop.key === 'tvHorizontal') return (obj.customProps?.hasTV as boolean) ?? true
+          return true
+        }
+        if (obj.type === 'rock_bed') {
+          if (prop.key === 'borderColor') return (obj.customProps?.bordered as boolean) ?? false
+          return true
+        }
+        if (obj.type === 'pony_wall' || obj.type === 'planter_box' || obj.type === 'planter_l_shaped') {
+          if (prop.key === 'capColor') return (obj.customProps?.capstone as boolean) ?? true
+          if (prop.key === 'rockSize' || prop.key === 'rockColor') return (obj.customProps?.fillType as string) === 'river_rock'
+          return true
+        }
         if (obj.type === 'roof') {
           if (prop.key === 'pitch') return (obj.customProps?.style as string) !== 'flat'
           return true
@@ -281,11 +314,14 @@ export function ObjectPropertiesPanel() {
         if (obj.type === 'fireplace') return true
         if (obj.type === 'patio_cover') {
           if (prop.key === 'roofPitch') return (obj.customProps?.roofStyle as string) !== 'flat'
+          if (prop.key === 'ceilingColor') return (obj.customProps?.ceiling as string) === 'tongue_groove'
+          if (prop.key === 'fanDiameter') return parseInt((obj.customProps?.fans as string) ?? '0', 10) > 0
           return true
         }
         if (obj.type !== 'wall') return true
         const shape = (obj.customProps?.shape as string) ?? 'straight'
         const winCount = (obj.customProps?.windowCount as number) ?? 0
+        if (prop.key === 'thickness') return shape !== 'straight'
         if (prop.key === 'lSide') return shape === 'l_shape'
         if (prop.key === 'windowCount') return true
         if (prop.key === 'windowLayout') return winCount > 0

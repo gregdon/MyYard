@@ -268,15 +268,37 @@ export function drawSmoothEllipseOverlay(
   ctx.restore()
 }
 
+export function drawMarqueeRect(
+  ctx: CanvasRenderingContext2D,
+  rect: { x1: number; y1: number; x2: number; y2: number },
+) {
+  const x = Math.min(rect.x1, rect.x2)
+  const y = Math.min(rect.y1, rect.y2)
+  const w = Math.abs(rect.x2 - rect.x1)
+  const h = Math.abs(rect.y2 - rect.y1)
+
+  ctx.save()
+  ctx.fillStyle = 'rgba(59, 130, 246, 0.08)'
+  ctx.fillRect(x, y, w, h)
+  ctx.strokeStyle = 'rgba(59, 130, 246, 0.6)'
+  ctx.lineWidth = 1.5
+  ctx.setLineDash([6, 3])
+  ctx.strokeRect(x, y, w, h)
+  ctx.setLineDash([])
+  ctx.restore()
+}
+
 export function drawPlacedObjects(
   ctx: CanvasRenderingContext2D,
   objects: PlacedObject3D[],
   viewport: Viewport,
   increment: GridIncrement,
   selectedObjectId: string | null,
+  selectedObjectIds?: string[],
 ) {
   const cellSize = 20 * viewport.zoom
   const cellFt = cellSizeFt(increment)
+  const selectedSet = new Set(selectedObjectIds ?? (selectedObjectId ? [selectedObjectId] : []))
 
   for (const obj of objects) {
     const prefab = PREFAB_CATALOG.find(p => p.type === obj.type)
@@ -284,7 +306,7 @@ export function drawPlacedObjects(
 
     const widthPx = (obj.size.widthFt / cellFt) * cellSize
     const depthPx = (obj.size.depthFt / cellFt) * cellSize
-    const isSelected = selectedObjectId === obj.id
+    const isSelected = selectedSet.has(obj.id)
     const objColor = (obj.customProps?.color as string) ?? prefab.color
     const strokeColor = isSelected ? '#3b82f6' : objColor
 
@@ -381,14 +403,52 @@ export function drawPlacedObjects(
       // Egg stand extension for L-shaped kitchen
       const hasLEggStand = (obj.customProps?.hasEggStand as boolean) ?? false
       if (hasLEggStand) {
-        const standSide = (obj.customProps?.eggStandSide as string) ?? 'left'
+        const standSide = (obj.customProps?.eggStandSide as string) ?? 'horizontal'
         const standWIn = (obj.customProps?.eggStandWidth as number) ?? 30
         const standWPx = (standWIn / 12 / cellFt) * cellSize
 
-        // Stand extends from either end of the top (horizontal) arm
-        const sx = standSide === 'left' ? -hw - standWPx : hw
-        const standY = -hd
-        const standH = legPx
+        // Horizontal arm: extends from right end of top arm
+        // Vertical arm: extends from bottom of left arm
+        let sx: number, standY: number, standH: number
+        if (standSide === 'vertical') {
+          // Attach to bottom of vertical arm
+          sx = -hw
+          standY = hd
+          standH = standWPx
+          // Swap: standWPx becomes height, legPx becomes width
+          const tempW = legPx
+          ctx.fillStyle = objColor + '30'
+          ctx.fillRect(sx, standY, tempW, standH)
+          ctx.strokeStyle = strokeColor
+          ctx.lineWidth = isSelected ? 2 : 1
+          ctx.setLineDash(isSelected ? [] : [4, 4])
+          ctx.strokeRect(sx, standY, tempW, standH)
+          ctx.setLineDash([])
+
+          // Egg
+          const eggMountingV = (obj.customProps?.eggMounting as string) ?? 'inset'
+          const eggCxV = sx + tempW / 2
+          const eggCyV = standY + standH / 2
+          const eggRV = Math.min(tempW, standH) * (eggMountingV === 'on_top' ? 0.38 : 0.3)
+          ctx.beginPath()
+          ctx.arc(eggCxV, eggCyV, eggRV, 0, Math.PI * 2)
+          ctx.fillStyle = eggMountingV === 'on_top' ? '#2d5a27a0' : '#2d5a2780'
+          ctx.fill()
+          ctx.strokeStyle = eggMountingV === 'on_top' ? '#1a4a1a' : '#2d5a27'
+          ctx.lineWidth = eggMountingV === 'on_top' ? 1.5 : 1
+          ctx.setLineDash([])
+          ctx.stroke()
+          if (eggMountingV === 'on_top') {
+            ctx.beginPath()
+            ctx.arc(eggCxV, eggCyV, eggRV * 0.65, 0, Math.PI * 2)
+            ctx.strokeStyle = '#1a4a1a80'
+            ctx.lineWidth = 1
+            ctx.stroke()
+          }
+        } else {
+          sx = hw
+          standY = -hd
+          standH = legPx
         ctx.fillStyle = objColor + '30'
         ctx.fillRect(sx, standY, standWPx, standH)
         ctx.strokeStyle = strokeColor
@@ -427,6 +487,7 @@ export function drawPlacedObjects(
           ctx.setLineDash([])
           ctx.stroke()
         }
+        } // close horizontal else
       }
     } else if (obj.type === 'kitchen_straight') {
       // Main kitchen body

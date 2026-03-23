@@ -4,7 +4,6 @@ import { Material } from '@/types/materials'
 import { ToolMode } from '@/types/tools'
 import type { ViewMode, FillMode, RightDrawer } from '@/types/tools'
 import type { PlacedObject3D } from '@/types/design'
-import type { RibbonTab } from '@/types/ribbon'
 
 /** Clipboard entry — a snapshot of a placed object (without id/position, assigned on paste) */
 export interface ClipboardObject {
@@ -26,10 +25,9 @@ interface UIState {
   zoomLevel: number
   customColor: string
   selectedObjectId: string | null
+  selectedObjectIds: string[]
   clipboard: ClipboardObject | null
   sideNavCollapsed: boolean
-  activeRibbonTab: RibbonTab
-  fileBackstageOpen: boolean
 
   setViewMode: (mode: ViewMode) => void
   setActiveTool: (tool: ToolMode) => void
@@ -42,11 +40,11 @@ interface UIState {
   setZoomLevel: (zoom: number) => void
   setCustomColor: (color: string) => void
   setSelectedObjectId: (id: string | null) => void
+  setSelectedObjectIds: (ids: string[]) => void
+  toggleObjectSelection: (id: string) => void
   copyObject: (obj: PlacedObject3D) => void
   setSideNavCollapsed: (collapsed: boolean) => void
   toggleSideNav: () => void
-  setActiveRibbonTab: (tab: RibbonTab) => void
-  setFileBackstageOpen: (open: boolean) => void
 }
 
 export const useUIStore = create<UIState>()(subscribeWithSelector((set, get) => ({
@@ -60,10 +58,9 @@ export const useUIStore = create<UIState>()(subscribeWithSelector((set, get) => 
   zoomLevel: 1,
   customColor: '#ff69b4',
   selectedObjectId: null,
+  selectedObjectIds: [],
   clipboard: null,
   sideNavCollapsed: false,
-  activeRibbonTab: 'home',
-  fileBackstageOpen: false,
 
   setViewMode: (mode) => set({ viewMode: mode }),
   setActiveTool: (tool) => set({ activeTool: tool }),
@@ -78,11 +75,16 @@ export const useUIStore = create<UIState>()(subscribeWithSelector((set, get) => 
   setCursorCell: (cell) => set({ cursorCell: cell }),
   setZoomLevel: (zoom) => set({ zoomLevel: zoom }),
   setCustomColor: (color) => set({ customColor: color }),
-  setSelectedObjectId: (id) => set({ selectedObjectId: id }),
+  setSelectedObjectId: (id) => set({ selectedObjectId: id, selectedObjectIds: id ? [id] : [] }),
+  setSelectedObjectIds: (ids) => set({ selectedObjectIds: ids, selectedObjectId: ids[0] ?? null }),
+  toggleObjectSelection: (id) => set((s) => {
+    const ids = s.selectedObjectIds.includes(id)
+      ? s.selectedObjectIds.filter(x => x !== id)
+      : [...s.selectedObjectIds, id]
+    return { selectedObjectIds: ids, selectedObjectId: ids[0] ?? null }
+  }),
   setSideNavCollapsed: (collapsed) => set({ sideNavCollapsed: collapsed }),
   toggleSideNav: () => set((s) => ({ sideNavCollapsed: !s.sideNavCollapsed })),
-  setActiveRibbonTab: (tab) => set({ activeRibbonTab: tab }),
-  setFileBackstageOpen: (open) => set({ fileBackstageOpen: open }),
   copyObject: (obj) => set({
     clipboard: {
       type: obj.type,

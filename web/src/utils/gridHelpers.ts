@@ -2,7 +2,9 @@ import type { GridIncrement } from '@/types/tools'
 import type { GridSettings } from '@/types/design'
 
 export function cellSizeFt(increment: GridIncrement): number {
-  return increment === '1ft' ? 1.0 : 0.5
+  if (increment === '1ft') return 1.0
+  if (increment === '6in') return 0.5
+  return 0.25 // 3in
 }
 
 export function ftToCells(ft: number, increment: GridIncrement): number {

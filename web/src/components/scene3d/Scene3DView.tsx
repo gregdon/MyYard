@@ -27,7 +27,7 @@ export function Scene3DView() {
     >
       <Suspense fallback={null}>
         <Lighting />
-        <Ground />
+        <Ground widthFt={gridSettings.widthFt} heightFt={gridSettings.heightFt} />
         <TerrainMesh />
         <PrefabRenderer />
         <OrbitControls

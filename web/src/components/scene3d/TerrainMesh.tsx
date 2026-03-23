@@ -39,7 +39,7 @@ export function TerrainMesh() {
 
       for (const { row, col } of cells) {
         const geo = new THREE.BoxGeometry(cellFt, height, cellFt)
-        const yPos = def.sunken ? -height / 2 : height / 2
+        const yPos = def.sunken ? -height / 2 : height / 2 - 0.02
         geo.translate(
           col * cellFt + cellFt / 2,
           yPos,

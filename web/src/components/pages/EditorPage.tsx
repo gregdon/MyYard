@@ -4,107 +4,86 @@ import { useDesignStore } from '@/store/designStore'
 import { useDesignIO } from '@/hooks/useDesignIO'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { SideNav } from '@/components/layout/SideNav'
-import { Ribbon } from '@/components/ribbon/Ribbon'
+import { EditorToolbar } from '@/components/toolbar/EditorToolbar'
 import { Canvas2DView } from '@/components/canvas2d/Canvas2DView'
 import { Scene3DView } from '@/components/scene3d/Scene3DView'
 import { NewDesignDialog } from '@/components/dialogs/NewDesignDialog'
 import { LoadDialog } from '@/components/dialogs/LoadDialog'
 import { ObjectPropertiesPanel } from '@/components/sidebar/ObjectPropertiesPanel'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-} from '@/components/ui/resizable'
-import { usePanelRef } from 'react-resizable-panels'
 
-const COLLAPSE_BREAKPOINT = 768
+const MD_BREAKPOINT = 768
 
 export function EditorPage() {
   const viewMode = useUIStore((s) => s.viewMode)
   const placedObjects = useDesignStore((s) => s.placedObjects)
+  const sideNavCollapsed = useUIStore((s) => s.sideNavCollapsed)
   const setSideNavCollapsed = useUIStore((s) => s.setSideNavCollapsed)
+
   const { saveDesign } = useDesignIO()
   useKeyboardShortcuts()
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [showLoadDialog, setShowLoadDialog] = useState(false)
-  const sidebarPanelRef = usePanelRef()
 
   // Auto-collapse sidebar on small screens
   useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${COLLAPSE_BREAKPOINT}px)`)
+    const mq = window.matchMedia(`(max-width: ${MD_BREAKPOINT}px)`)
     const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
-      if (e.matches) {
-        sidebarPanelRef.current?.collapse()
-      } else {
-        sidebarPanelRef.current?.expand()
-      }
+      if (e.matches) setSideNavCollapsed(true)
     }
     handleChange(mq)
     mq.addEventListener('change', handleChange)
     return () => mq.removeEventListener('change', handleChange)
-  }, [])
+  }, [setSideNavCollapsed])
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <Ribbon
+      <EditorToolbar
         onNew={() => setShowNewDialog(true)}
         onSave={saveDesign}
         onLoad={() => setShowLoadDialog(true)}
       />
 
       <div className="flex flex-1 overflow-hidden">
-        <ResizablePanelGroup orientation="horizontal">
-          <ResizablePanel
-            panelRef={sidebarPanelRef}
-            defaultSize={18}
-            minSize={8}
-            maxSize={35}
-            collapsible
-            collapsedSize={3}
-            onResize={() => {
-              const collapsed = sidebarPanelRef.current?.isCollapsed() ?? false
-              setSideNavCollapsed(collapsed)
-            }}
+        {/* Sidebar */}
+        <div
+          className={`shrink-0 overflow-hidden border-r transition-[width] duration-200 ${
+            sideNavCollapsed ? 'w-12' : 'w-64'
+          }`}
+        >
+          <SideNav />
+        </div>
+
+        {/* Canvas area */}
+        <div className="relative flex-1 overflow-hidden">
+          {/* 2D Canvas */}
+          <div
+            className="absolute inset-0"
+            style={{ display: viewMode === '2d' ? 'block' : 'none' }}
           >
-            <SideNav />
-          </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={82}>
-            <div className="flex h-full overflow-hidden">
-              {/* Canvas area */}
-              <div className="relative flex-1 overflow-hidden">
-                {/* 2D Canvas */}
-                <div
-                  className="absolute inset-0"
-                  style={{ display: viewMode === '2d' ? 'block' : 'none' }}
-                >
-                  <Canvas2DView />
-                </div>
+            <Canvas2DView />
+          </div>
 
-                {/* 3D Scene */}
-                <div
-                  className="absolute inset-0"
-                  style={{ display: viewMode === '3d' ? 'block' : 'none' }}
-                >
-                  <Scene3DView />
-                </div>
+          {/* 3D Scene */}
+          <div
+            className="absolute inset-0"
+            style={{ display: viewMode === '3d' ? 'block' : 'none' }}
+          >
+            <Scene3DView />
+          </div>
+        </div>
+
+        {/* Right properties panel — shows when objects exist */}
+        {placedObjects.length > 0 && (
+          <div className="flex h-full w-[280px] shrink-0 flex-col overflow-hidden border-l bg-card">
+            <div className="border-b px-3 py-2 text-sm font-semibold">Properties</div>
+            <ScrollArea className="min-h-0 flex-1">
+              <div className="p-3">
+                <ObjectPropertiesPanel />
               </div>
-
-              {/* Right properties panel — shows when objects exist */}
-              {placedObjects.length > 0 && (
-                <div className="flex h-full w-[280px] shrink-0 flex-col border-l bg-card">
-                  <div className="border-b px-3 py-2 text-sm font-semibold">Properties</div>
-                  <ScrollArea className="flex-1">
-                    <div className="p-3">
-                      <ObjectPropertiesPanel />
-                    </div>
-                  </ScrollArea>
-                </div>
-              )}
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+            </ScrollArea>
+          </div>
+        )}
       </div>
 
       <NewDesignDialog open={showNewDialog} onOpenChange={setShowNewDialog} />
