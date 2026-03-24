@@ -21,7 +21,6 @@ import {
   UtensilsCrossed,
   FlameKindling,
   Egg,
-  Beef,
   Table,
   Armchair,
   Sofa,
