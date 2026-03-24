@@ -11,9 +11,30 @@ export function TerrainMesh() {
   const cols = useDesignStore((s) => s.cols)
   const gridSettings = useDesignStore((s) => s.gridSettings)
   const gridVersion = useDesignStore((s) => s.gridVersion)
+  const placedObjects = useDesignStore((s) => s.placedObjects)
 
   const meshes = useMemo(() => {
     const cellFt = cellSizeFt(gridSettings.increment)
+
+    // Build a set of cells occluded by concrete slabs (to prevent z-fighting)
+    const slabs = placedObjects.filter((o) => o.type === 'concrete_slab')
+    const occluded = new Set<number>()
+    for (const slab of slabs) {
+      const sx = slab.position[0]
+      const sz = slab.position[2]
+      const sw = slab.size.widthFt
+      const sd = slab.size.depthFt
+      // Convert slab bounds to cell indices, with 1-cell margin to eliminate edge z-fighting
+      const cStart = Math.floor(sx / cellFt) - 1
+      const cEnd = Math.ceil((sx + sw) / cellFt) + 1
+      const rStart = Math.floor(sz / cellFt) - 1
+      const rEnd = Math.ceil((sz + sd) / cellFt) + 1
+      for (let r = rStart; r < rEnd && r < rows; r++) {
+        for (let c = cStart; c < cEnd && c < cols; c++) {
+          if (r >= 0 && c >= 0) occluded.add(r * cols + c)
+        }
+      }
+    }
 
     // Group cells by material
     const groups = new Map<Material, { row: number; col: number }[]>()
@@ -23,6 +44,8 @@ export function TerrainMesh() {
         const matIdx = grid[r * cols + c]
         const material = INDEX_TO_MATERIAL.get(matIdx) ?? Material.Empty
         if (material === Material.Empty) continue
+        // Skip cells under concrete slabs
+        if (occluded.has(r * cols + c)) continue
 
         if (!groups.has(material)) groups.set(material, [])
         groups.get(material)!.push({ row: r, col: c })
@@ -35,16 +58,29 @@ export function TerrainMesh() {
     for (const [material, cells] of groups) {
       const def = MATERIAL_DEFS[material]
       const height = Math.abs(def.heightFt) || 0.02 // min height for flat materials
-      const geometries: THREE.BoxGeometry[] = []
+      const usePlane = !def.sunken && height <= 0.1 // flat materials use PlaneGeometry (no side faces)
+      const geometries: THREE.BufferGeometry[] = []
 
       for (const { row, col } of cells) {
-        const geo = new THREE.BoxGeometry(cellFt, height, cellFt)
-        const yPos = def.sunken ? -height / 2 : height / 2 - 0.02
-        geo.translate(
-          col * cellFt + cellFt / 2,
-          yPos,
-          row * cellFt + cellFt / 2,
-        )
+        let geo: THREE.BufferGeometry
+        if (usePlane) {
+          // PlaneGeometry: no side faces, eliminates z-fighting with ground/slabs
+          geo = new THREE.PlaneGeometry(cellFt, cellFt)
+          geo.rotateX(-Math.PI / 2) // lay flat
+          geo.translate(
+            col * cellFt + cellFt / 2,
+            0.001, // just above ground plane
+            row * cellFt + cellFt / 2,
+          )
+        } else {
+          geo = new THREE.BoxGeometry(cellFt, height, cellFt)
+          const yPos = def.sunken ? -height / 2 : height / 2 - 0.02
+          geo.translate(
+            col * cellFt + cellFt / 2,
+            yPos,
+            row * cellFt + cellFt / 2,
+          )
+        }
         geometries.push(geo)
       }
 
@@ -64,7 +100,7 @@ export function TerrainMesh() {
 
     return result
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gridVersion, grid, rows, cols, gridSettings.increment])
+  }, [gridVersion, grid, rows, cols, gridSettings.increment, placedObjects])
 
   return (
     <>

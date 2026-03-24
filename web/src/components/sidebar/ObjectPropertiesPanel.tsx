@@ -138,6 +138,10 @@ export function ObjectPropertiesPanel() {
       updates.size = { widthFt: s.w, depthFt: s.w, heightFt: s.h }
     }
 
+    if (obj.type === 'turf' && key === 'grassHeight') {
+      updates.size = { ...obj.size, heightFt: (value as number) / 12 }
+    }
+
     if (obj.type === 'retaining_wall') {
       const wallLength = key === 'wallLength' ? (value as number) : (obj.customProps?.wallLength as number) ?? 120
       const wallHeight = key === 'wallHeight' ? (value as number) : (obj.customProps?.wallHeight as number) ?? 24
@@ -316,6 +320,10 @@ export function ObjectPropertiesPanel() {
           if (prop.key === 'roofPitch') return (obj.customProps?.roofStyle as string) !== 'flat'
           if (prop.key === 'ceilingColor') return (obj.customProps?.ceiling as string) === 'tongue_groove'
           if (prop.key === 'fanDiameter') return parseInt((obj.customProps?.fans as string) ?? '0', 10) > 0
+          const fanCt = parseInt((obj.customProps?.fans as string) ?? '0', 10)
+          if (prop.key === 'fan1Pos') return fanCt >= 1
+          if (prop.key === 'fan2Pos') return fanCt >= 2
+          if (prop.key === 'fan3Pos') return fanCt >= 3
           return true
         }
         if (obj.type !== 'wall') return true

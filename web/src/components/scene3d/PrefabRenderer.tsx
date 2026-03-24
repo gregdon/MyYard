@@ -240,19 +240,16 @@ function renderPrefab(
           const slabColor = obj.customProps?.color
             ? new THREE.Color(obj.customProps.color as string)
             : color
-          // Pad slab 0.02ft wider so its side faces sit in front of terrain cell edges (prevents z-fighting)
-          const pad = 0.02
           return (
             <mesh
               key={obj.id}
-              position={[obj.position[0] + widthFt / 2, heightFt / 2 + 0.01, obj.position[2] + depthFt / 2]}
+              position={[obj.position[0] + widthFt / 2, heightFt / 2, obj.position[2] + depthFt / 2]}
               rotation={[0, obj.rotation[1], 0]}
               castShadow
               receiveShadow
-              renderOrder={1}
             >
-              <boxGeometry args={[widthFt + pad * 2, heightFt, depthFt + pad * 2]} />
-              <meshStandardMaterial color={slabColor} roughness={0.8} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1} />
+              <boxGeometry args={[widthFt, heightFt, depthFt]} />
+              <meshStandardMaterial color={slabColor} roughness={0.8} />
             </mesh>
           )
         }
@@ -436,6 +433,13 @@ function renderPrefab(
             ? new THREE.Color(obj.customProps.color as string)
             : color
           return <RetainingWallMesh key={obj.id} obj={obj} color={rwColor} />
+        }
+
+        if (obj.type === 'turf') {
+          const turfColor = obj.customProps?.color
+            ? new THREE.Color(obj.customProps.color as string)
+            : color
+          return <TurfMesh key={obj.id} obj={obj} color={turfColor} />
         }
 
         // Default box for other prefabs
@@ -741,11 +745,11 @@ function PatioCoverMesh({ obj, color }: { obj: PlacedObject3D; color: THREE.Colo
 
         {/* Tongue & groove ceiling — planks under the rafters, extending to overhang */}
         {ceiling === 'tongue_groove' && (() => {
-          // Offset ceiling below rafter tops to avoid z-fighting with roof panel
           const oh = overhang
-          const ceilingY = frontBeamY + beamH / 2 - 0.06
+          // Ceiling sits below the rafters; plank bottom aligns with beam top
+          const ceilingY = frontBeamY + beamH / 2 + 0.04
           const backCeilingY = roofStyle === 'tilt'
-            ? backBeamY + beamH / 2 - 0.06
+            ? backBeamY + beamH / 2 + 0.04
             : ceilingY
           const plankW = 0.5 // 6-inch planks
           const plankH = 0.04
@@ -783,9 +787,20 @@ function PatioCoverMesh({ obj, color }: { obj: PlacedObject3D; color: THREE.Colo
         {fanCount > 0 && (() => {
           const fanOffset = ceiling === 'tongue_groove' ? 0.15 : 0.1
           const fanY = frontBeamY + beamH / 2 - fanOffset
+          // Fan positions from sliders (percentage of width), with even-spacing defaults
+          const fanPosKeys = ['fan1Pos', 'fan2Pos', 'fan3Pos'] as const
+          const defaultPositions = (count: number) => {
+            const result: number[] = []
+            for (let i = 0; i < count; i++) {
+              result.push(count === 1 ? 50 : Math.round(((i + 1) / (count + 1)) * 100))
+            }
+            return result
+          }
+          const defaults = defaultPositions(fanCount)
           const fans: React.JSX.Element[] = []
           for (let i = 0; i < fanCount; i++) {
-            const fx = fanCount === 1 ? widthFt / 2 : widthFt * (i + 1) / (fanCount + 1)
+            const pct = (obj.customProps?.[fanPosKeys[i]] as number) ?? defaults[i]
+            const fx = (pct / 100) * widthFt
             const fz = depthFt / 2
             // Interpolate Y for tilted roofs
             const t = fz / depthFt
@@ -840,9 +855,10 @@ function PatioCoverMesh({ obj, color }: { obj: PlacedObject3D; color: THREE.Colo
           const frontCount = perSide
           const backCount = lightCount - frontCount
           const inset = depthFt * 0.25 // lights inset 25% from edges
-          // Front row
+          // Front row — inset 2ft from each end so lights clear the beams
+          const xInset = 2
           for (let i = 0; i < frontCount; i++) {
-            const lx = frontCount === 1 ? widthFt / 2 : postSize / 2 + (widthFt - postSize) * (i / (frontCount - 1))
+            const lx = frontCount === 1 ? widthFt / 2 : xInset + (widthFt - xInset * 2) * (i / (frontCount - 1))
             const lz = inset
             const t = lz / depthFt
             const ly = lightY * (1 - t) + backLightY * t
@@ -861,7 +877,7 @@ function PatioCoverMesh({ obj, color }: { obj: PlacedObject3D; color: THREE.Colo
           }
           // Back row
           for (let i = 0; i < backCount; i++) {
-            const lx = backCount === 1 ? widthFt / 2 : postSize / 2 + (widthFt - postSize) * (i / (backCount - 1))
+            const lx = backCount === 1 ? widthFt / 2 : xInset + (widthFt - xInset * 2) * (i / (backCount - 1))
             const lz = depthFt - inset
             const t = lz / depthFt
             const ly = lightY * (1 - t) + backLightY * t
@@ -2804,6 +2820,76 @@ function SmokerMesh({ obj, color, style }: { obj: PlacedObject3D; color: THREE.C
         <cylinderGeometry args={[0.15, 0.2, 0.3, 8]} />
         <meshStandardMaterial color="#555" />
       </mesh>
+    </group>
+  )
+}
+
+function TurfMesh({ obj, color }: { obj: PlacedObject3D; color: THREE.Color }) {
+  const { widthFt, depthFt } = obj.size
+  const turfType = (obj.customProps?.turfType as string) ?? 'natural'
+  const grassHeightIn = (obj.customProps?.grassHeight as number) ?? 2
+  const grassHeight = grassHeightIn / 12 // convert to feet
+  const cx = obj.position[0] + widthFt / 2
+  const cz = obj.position[2] + depthFt / 2
+
+  // Grass blade rows for texture effect
+  const bladeData = useMemo(() => {
+    const blades: { x: number; z: number; h: number; shade: number }[] = []
+    const spacing = turfType === 'putting_green' ? 0.4 : 0.25
+    const seed = (obj.id.charCodeAt(0) * 137 + obj.id.charCodeAt(1) * 73) | 0
+    let s = seed
+    const rng = () => { s = (s * 16807 + 0) % 2147483647; return s / 2147483647 }
+
+    for (let x = spacing / 2; x < widthFt; x += spacing) {
+      for (let z = spacing / 2; z < depthFt; z += spacing) {
+        const jx = (rng() - 0.5) * spacing * 0.6
+        const jz = (rng() - 0.5) * spacing * 0.6
+        const hVar = turfType === 'putting_green' ? 0.05 : 0.3
+        blades.push({
+          x: -widthFt / 2 + x + jx,
+          z: -depthFt / 2 + z + jz,
+          h: grassHeight * (0.7 + rng() * hVar),
+          shade: 0.85 + rng() * 0.3,
+        })
+      }
+    }
+    return blades
+  }, [obj.id, widthFt, depthFt, grassHeight, turfType])
+
+  // Colors by type
+  const baseColor = color.clone()
+  if (turfType === 'artificial') {
+    baseColor.multiplyScalar(1.15) // slightly brighter, more uniform
+  } else if (turfType === 'putting_green') {
+    baseColor.set('#2d7a1a') // darker, tighter
+  }
+
+  return (
+    <group rotation={[0, obj.rotation[1], 0]} position={[cx, 0, cz]}>
+      {/* Base soil/ground layer */}
+      <mesh position={[0, 0.005, 0]} receiveShadow>
+        <boxGeometry args={[widthFt, 0.01, depthFt]} />
+        <meshStandardMaterial color={baseColor} roughness={0.95} />
+      </mesh>
+
+      {/* Grass blades as thin boxes */}
+      {bladeData.map((b, i) => {
+        const bladeColor = baseColor.clone().multiplyScalar(b.shade)
+        return (
+          <mesh key={i} position={[b.x, b.h / 2 + 0.01, b.z]}>
+            <boxGeometry args={[0.06, b.h, 0.02]} />
+            <meshStandardMaterial color={bladeColor} roughness={0.9} />
+          </mesh>
+        )
+      })}
+
+      {turfType === 'artificial' && (
+        // Subtle sheen layer on top for artificial look
+        <mesh position={[0, grassHeight + 0.01, 0]} receiveShadow>
+          <boxGeometry args={[widthFt, 0.005, depthFt]} />
+          <meshStandardMaterial color={baseColor} roughness={0.4} metalness={0.05} />
+        </mesh>
+      )}
     </group>
   )
 }
