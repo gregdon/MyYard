@@ -15,6 +15,8 @@ export type InteractionState =
   | { type: 'placing_polygon'; vertices: CellCoord[]; currentCell: CellCoord | null }
   | { type: 'dragging_object'; objectId: string; startX: number; startY: number; startPos: [number, number, number] }
   | { type: 'rotating_object'; objectId: string; centerX: number; centerY: number; startAngle: number; origRotation: number }
+  | { type: 'marquee_selecting'; startX: number; startY: number; currentX: number; currentY: number }
+  | { type: 'dragging_group'; objectIds: string[]; startX: number; startY: number; startPositions: Map<string, [number, number, number]> }
 
 export interface CanvasInteractionManager {
   viewport: Viewport
@@ -23,6 +25,8 @@ export interface CanvasInteractionManager {
   previewCells: CellCoord[]
   spaceHeld: boolean
   dirty: boolean
+  /** Screen-space marquee rectangle (for rendering) */
+  marqueeRect: { x1: number; y1: number; x2: number; y2: number } | null
 }
 
 export function createInteractionManager(): CanvasInteractionManager {
@@ -33,6 +37,7 @@ export function createInteractionManager(): CanvasInteractionManager {
     previewCells: [],
     spaceHeld: false,
     dirty: true,
+    marqueeRect: null,
   }
 }
 
@@ -166,6 +171,26 @@ function hitTestRotationHandle(
   return null
 }
 
+/** Find all objects whose axis-aligned bounding box overlaps the given world-space rectangle */
+export function objectsInRect(
+  x1: number, z1: number, x2: number, z2: number,
+  objects: PlacedObject3D[],
+): PlacedObject3D[] {
+  const minX = Math.min(x1, x2)
+  const maxX = Math.max(x1, x2)
+  const minZ = Math.min(z1, z2)
+  const maxZ = Math.max(z1, z2)
+
+  return objects.filter(obj => {
+    const ox = obj.position[0]
+    const oz = obj.position[2]
+    const ow = obj.size.widthFt
+    const od = obj.size.depthFt
+    // Check AABB overlap
+    return ox + ow > minX && ox < maxX && oz + od > minZ && oz < maxZ
+  })
+}
+
 export function handleWheel(
   mgr: CanvasInteractionManager,
   e: { deltaY: number; offsetX: number; offsetY: number },
@@ -186,7 +211,7 @@ export function handleWheel(
 
 export function handleMouseDown(
   mgr: CanvasInteractionManager,
-  e: { button: number; offsetX: number; offsetY: number },
+  e: { button: number; offsetX: number; offsetY: number; shiftKey: boolean },
   tool: ToolMode,
   activeMaterial: Material,
   fillMode: FillMode,
@@ -198,6 +223,9 @@ export function handleMouseDown(
   increment: GridIncrement,
   setSelectedObjectId: (id: string | null) => void,
   selectedObjectId: string | null,
+  selectedObjectIds: string[],
+  setSelectedObjectIds: (ids: string[]) => void,
+  toggleObjectSelection: (id: string) => void,
 ) {
   // Right click, middle click, or space+left = pan
   if (e.button === 2 || e.button === 1 || (e.button === 0 && mgr.spaceHeld)) {
@@ -234,24 +262,55 @@ export function handleMouseDown(
   // Check if clicking on a placed object
   const hitObj = hitTestObjects(e, mgr.viewport, increment, placedObjects)
   if (hitObj) {
-    setSelectedObjectId(hitObj.id)
-    pushSnapshot()
-    mgr.state = {
-      type: 'dragging_object',
-      objectId: hitObj.id,
-      startX: e.offsetX,
-      startY: e.offsetY,
-      startPos: [...hitObj.position],
+    if (e.shiftKey) {
+      // Shift+click toggles object in/out of multi-selection
+      toggleObjectSelection(hitObj.id)
+    } else if (selectedObjectIds.length > 1 && selectedObjectIds.includes(hitObj.id)) {
+      // Clicking an already-selected object in a multi-selection → start group drag
+      pushSnapshot()
+      const startPositions = new Map<string, [number, number, number]>()
+      for (const id of selectedObjectIds) {
+        const obj = placedObjects.find(o => o.id === id)
+        if (obj) startPositions.set(id, [...obj.position])
+      }
+      mgr.state = {
+        type: 'dragging_group',
+        objectIds: [...selectedObjectIds],
+        startX: e.offsetX,
+        startY: e.offsetY,
+        startPositions,
+      }
+    } else {
+      // Normal click — single select + start drag
+      setSelectedObjectId(hitObj.id)
+      pushSnapshot()
+      mgr.state = {
+        type: 'dragging_object',
+        objectId: hitObj.id,
+        startX: e.offsetX,
+        startY: e.offsetY,
+        startPos: [...hitObj.position],
+      }
     }
     mgr.dirty = true
     return
   }
 
-  // Clicked empty area — deselect
-  setSelectedObjectId(null)
+  // Clicked empty area
+  if (!e.shiftKey) {
+    setSelectedObjectIds([])
+  }
 
-  // Pointer tool only selects/moves objects, doesn't draw
+  // Pointer tool: start marquee selection on empty space
   if (tool === ToolMode.Pointer) {
+    mgr.state = {
+      type: 'marquee_selecting',
+      startX: e.offsetX,
+      startY: e.offsetY,
+      currentX: e.offsetX,
+      currentY: e.offsetY,
+    }
+    mgr.marqueeRect = { x1: e.offsetX, y1: e.offsetY, x2: e.offsetX, y2: e.offsetY }
     mgr.dirty = true
     return
   }
@@ -346,6 +405,42 @@ export function handleMouseMove(
     return
   }
 
+  if (mgr.state.type === 'dragging_group') {
+    const cellSize = 20 * mgr.viewport.zoom
+    const cellFt = cellSizeFt(increment)
+    const dx = e.offsetX - mgr.state.startX
+    const dy = e.offsetY - mgr.state.startY
+    const dxFt = (dx / cellSize) * cellFt
+    const dyFt = (dy / cellSize) * cellFt
+
+    // Snap the delta itself so all objects move by the same grid-aligned amount
+    const snapDx = Math.round(dxFt / cellFt) * cellFt
+    const snapDz = Math.round(dyFt / cellFt) * cellFt
+
+    for (const id of mgr.state.objectIds) {
+      const startPos = mgr.state.startPositions.get(id)
+      if (!startPos) continue
+      updatePlacedObject(id, {
+        position: [startPos[0] + snapDx, startPos[1], startPos[2] + snapDz],
+      })
+    }
+    mgr.dirty = true
+    return
+  }
+
+  if (mgr.state.type === 'marquee_selecting') {
+    mgr.state.currentX = e.offsetX
+    mgr.state.currentY = e.offsetY
+    mgr.marqueeRect = {
+      x1: mgr.state.startX,
+      y1: mgr.state.startY,
+      x2: e.offsetX,
+      y2: e.offsetY,
+    }
+    mgr.dirty = true
+    return
+  }
+
   if (mgr.state.type === 'painting') {
     if (cell.row >= 0 && cell.row < rows && cell.col >= 0 && cell.col < cols) {
       const mat = tool === ToolMode.Eraser ? Material.Empty : activeMaterial
@@ -393,6 +488,9 @@ export function handleMouseUp(
   activeMaterial: Material,
   _fillMode: FillMode,
   fillCells: (cells: CellCoord[], material: Material) => void,
+  placedObjects?: PlacedObject3D[],
+  increment?: GridIncrement,
+  setSelectedObjectIds?: (ids: string[]) => void,
 ) {
   if (mgr.state.type === 'panning') {
     mgr.state = { type: 'idle' }
@@ -401,6 +499,31 @@ export function handleMouseUp(
 
   if (mgr.state.type === 'dragging_object' || mgr.state.type === 'rotating_object') {
     mgr.state = { type: 'idle' }
+    return
+  }
+
+  if (mgr.state.type === 'dragging_group') {
+    mgr.state = { type: 'idle' }
+    return
+  }
+
+  if (mgr.state.type === 'marquee_selecting') {
+    // Convert screen rect to world coords and find enclosed objects
+    if (placedObjects && increment && setSelectedObjectIds) {
+      const cellSize = 20 * mgr.viewport.zoom
+      const cellFt = cellSizeFt(increment)
+      const x1 = ((Math.min(mgr.state.startX, mgr.state.currentX) + mgr.viewport.offsetX) / cellSize) * cellFt
+      const z1 = ((Math.min(mgr.state.startY, mgr.state.currentY) + mgr.viewport.offsetY) / cellSize) * cellFt
+      const x2 = ((Math.max(mgr.state.startX, mgr.state.currentX) + mgr.viewport.offsetX) / cellSize) * cellFt
+      const z2 = ((Math.max(mgr.state.startY, mgr.state.currentY) + mgr.viewport.offsetY) / cellSize) * cellFt
+      const hits = objectsInRect(x1, z1, x2, z2, placedObjects)
+      if (hits.length > 0) {
+        setSelectedObjectIds(hits.map(o => o.id))
+      }
+    }
+    mgr.marqueeRect = null
+    mgr.state = { type: 'idle' }
+    mgr.dirty = true
     return
   }
 

@@ -1,5 +1,7 @@
 import type React from 'react'
+import { useMemo } from 'react'
 import * as THREE from 'three'
+import { Tree } from '@dgreenheck/ez-tree'
 import { useDesignStore } from '@/store/designStore'
 import { PREFAB_CATALOG } from '@/constants/prefabs'
 import type { PlacedObject3D } from '@/types/design'
@@ -121,115 +123,7 @@ function renderPrefab(
         }
 
         if (obj.type === 'tree_small') {
-          const treeColor = obj.customProps?.color
-            ? new THREE.Color(obj.customProps.color as string)
-            : color
-          const treeType = (obj.customProps?.treeType as string) ?? 'deciduous'
-          const trunkColor = new THREE.Color('#5a3a1a')
-          const cx = obj.position[0] + widthFt / 2
-          const cz = obj.position[2] + depthFt / 2
-          const r = widthFt / 2
-
-          if (treeType === 'evergreen') {
-            // Stacked cones (3 tiers)
-            const trunkH = heightFt * 0.25
-            const foliageH = heightFt - trunkH
-            return (
-              <group key={obj.id} position={[cx, 0, cz]}>
-                <mesh position={[0, trunkH / 2, 0]} castShadow>
-                  <cylinderGeometry args={[0.15, 0.25, trunkH, 8]} />
-                  <meshStandardMaterial color={trunkColor} />
-                </mesh>
-                {[0, 1, 2].map((i) => {
-                  const tierH = foliageH * 0.45
-                  const tierR = r * (1 - i * 0.25)
-                  const tierY = trunkH + foliageH * (i * 0.28)
-                  return (
-                    <mesh key={`tier-${i}`} position={[0, tierY + tierH / 3, 0]} castShadow>
-                      <coneGeometry args={[tierR, tierH, 12]} />
-                      <meshStandardMaterial color={treeColor} />
-                    </mesh>
-                  )
-                })}
-              </group>
-            )
-          }
-
-          if (treeType === 'palm') {
-            const trunkH = heightFt * 0.8
-            const frondLen = widthFt * 0.8
-            const frondColor = treeColor
-            return (
-              <group key={obj.id} position={[cx, 0, cz]}>
-                {/* Trunk — slight curve via taper */}
-                <mesh position={[0, trunkH / 2, 0]} castShadow>
-                  <cylinderGeometry args={[0.15, 0.3, trunkH, 8]} />
-                  <meshStandardMaterial color={new THREE.Color('#8a7355')} />
-                </mesh>
-                {/* Fronds — elongated shapes fanning out */}
-                {Array.from({ length: 8 }, (_, i) => {
-                  const angle = (i / 8) * Math.PI * 2
-                  const droop = 0.5
-                  return (
-                    <mesh
-                      key={`frond-${i}`}
-                      position={[
-                        Math.cos(angle) * frondLen * 0.4,
-                        trunkH - droop * 0.3,
-                        Math.sin(angle) * frondLen * 0.4,
-                      ]}
-                      rotation={[droop * Math.sin(angle), angle, -droop * Math.cos(angle)]}
-                      castShadow
-                    >
-                      <boxGeometry args={[0.15, 0.05, frondLen]} />
-                      <meshStandardMaterial color={frondColor} />
-                    </mesh>
-                  )
-                })}
-                {/* Crown cluster */}
-                <mesh position={[0, trunkH, 0]} castShadow>
-                  <sphereGeometry args={[0.5, 8, 8]} />
-                  <meshStandardMaterial color={frondColor} />
-                </mesh>
-              </group>
-            )
-          }
-
-          if (treeType === 'ornamental') {
-            const trunkH = heightFt * 0.45
-            return (
-              <group key={obj.id} position={[cx, 0, cz]}>
-                <mesh position={[0, trunkH / 2, 0]} castShadow>
-                  <cylinderGeometry args={[0.12, 0.2, trunkH, 8]} />
-                  <meshStandardMaterial color={trunkColor} />
-                </mesh>
-                {/* Main foliage — slightly flattened sphere */}
-                <mesh position={[0, trunkH + r * 0.6, 0]} castShadow scale={[1, 0.75, 1]}>
-                  <sphereGeometry args={[r * 0.8, 12, 12]} />
-                  <meshStandardMaterial color={treeColor} />
-                </mesh>
-                {/* Flower accent on top */}
-                <mesh position={[0, trunkH + r * 1.1, 0]} castShadow>
-                  <sphereGeometry args={[r * 0.35, 8, 8]} />
-                  <meshStandardMaterial color={new THREE.Color('#e890b0')} />
-                </mesh>
-              </group>
-            )
-          }
-
-          // Default: deciduous (sphere foliage)
-          return (
-            <group key={obj.id} position={[cx, 0, cz]}>
-              <mesh position={[0, heightFt * 0.3, 0]} castShadow>
-                <cylinderGeometry args={[0.2, 0.3, heightFt * 0.6, 8]} />
-                <meshStandardMaterial color={trunkColor} />
-              </mesh>
-              <mesh position={[0, heightFt * 0.65, 0]} castShadow>
-                <sphereGeometry args={[r, 12, 12]} />
-                <meshStandardMaterial color={treeColor} />
-              </mesh>
-            </group>
-          )
+          return <EzTreeMesh key={obj.id} obj={obj} />
         }
 
         if (obj.type === 'shrub') {
@@ -355,7 +249,7 @@ function renderPrefab(
               receiveShadow
             >
               <boxGeometry args={[widthFt, heightFt, depthFt]} />
-              <meshStandardMaterial color={slabColor} roughness={0.8} polygonOffset polygonOffsetFactor={1} polygonOffsetUnits={1} />
+              <meshStandardMaterial color={slabColor} roughness={0.8} />
             </mesh>
           )
         }
@@ -381,6 +275,116 @@ function renderPrefab(
           )
         }
 
+        if (obj.type === 'pony_wall') {
+          const ponyColor = (obj.customProps?.color as string) ?? '#8b7355'
+          const capstone = (obj.customProps?.capstone as boolean) ?? true
+          const capColor = (obj.customProps?.capColor as string) ?? '#a0a0a0'
+          const capH = 0.15
+          const bodyH = capstone ? heightFt - capH : heightFt
+          return (
+            <group
+              key={`${obj.id}-${ponyColor}-${capColor}`}
+              position={[obj.position[0] + widthFt / 2, 0, obj.position[2] + depthFt / 2]}
+              rotation={[0, obj.rotation[1], 0]}
+            >
+              <mesh position={[0, bodyH / 2, 0]} castShadow>
+                <boxGeometry args={[widthFt, bodyH, depthFt]} />
+                <meshStandardMaterial color={ponyColor} />
+              </mesh>
+              {capstone && (
+                <mesh position={[0, bodyH + capH / 2, 0]} castShadow>
+                  <boxGeometry args={[widthFt + 0.08, capH, depthFt + 0.08]} />
+                  <meshStandardMaterial color={capColor} />
+                </mesh>
+              )}
+            </group>
+          )
+        }
+
+        if (obj.type === 'tv_wall') {
+          const wallMaterial = (obj.customProps?.material as string) ?? 'stone'
+          const wallColor = (obj.customProps?.color as string) ?? '#6b6b6b'
+          const hasTV = (obj.customProps?.hasTV as boolean) ?? true
+          const tvSizeIn = (obj.customProps?.tvSize as number) ?? 55
+          const tvVertIn = (obj.customProps?.tvVertical as number) ?? 0
+          const tvHorizIn = (obj.customProps?.tvHorizontal as number) ?? 0
+          // TV aspect ratio ~16:9, diagonal to width/height
+          const tvW = (tvSizeIn * 0.872) / 12 // width in ft
+          const tvH = (tvSizeIn * 0.49) / 12  // height in ft
+          const tvD = 0.08
+          const tvY = heightFt * 0.55 + tvVertIn / 12
+          const tvX = tvHorizIn / 12
+          const isTG = wallMaterial === 'wood_tg'
+          return (
+            <group
+              key={`${obj.id}-${wallColor}-${wallMaterial}`}
+              position={[obj.position[0] + widthFt / 2, 0, obj.position[2] + depthFt / 2]}
+              rotation={[0, obj.rotation[1], 0]}
+            >
+              {/* Wall body */}
+              {!isTG && (
+                <mesh position={[0, heightFt / 2, 0]} castShadow>
+                  <boxGeometry args={[widthFt, heightFt, depthFt]} />
+                  <meshStandardMaterial color={wallColor} />
+                </mesh>
+              )}
+              {/* Tongue & groove planks */}
+              {isTG && (() => {
+                const plankW = 0.5 // 6-inch planks
+                const plankGap = 0.01
+                const plankCount = Math.ceil(widthFt / plankW)
+                const planks: React.JSX.Element[] = []
+                for (let i = 0; i < plankCount; i++) {
+                  const px = -widthFt / 2 + plankW / 2 + i * plankW
+                  const pw = Math.min(plankW - plankGap, widthFt / 2 - (px - plankW / 2))
+                  if (pw <= 0) break
+                  const shade = i % 2 === 0
+                    ? wallColor
+                    : new THREE.Color(wallColor).multiplyScalar(0.9).getStyle()
+                  planks.push(
+                    <mesh key={`tg-${i}`} position={[px, heightFt / 2, 0]} castShadow>
+                      <boxGeometry args={[pw, heightFt, depthFt]} />
+                      <meshStandardMaterial color={shade} roughness={0.85} />
+                    </mesh>
+                  )
+                }
+                return planks
+              })()}
+              {/* TV */}
+              {hasTV && (
+                <group position={[tvX, tvY, -depthFt / 2 - tvD / 2]}>
+                  {/* Screen */}
+                  <mesh castShadow>
+                    <boxGeometry args={[tvW, tvH, tvD]} />
+                    <meshStandardMaterial color="#111111" />
+                  </mesh>
+                  {/* Bezel frame */}
+                  <mesh position={[0, 0, -0.005]}>
+                    <boxGeometry args={[tvW + 0.06, tvH + 0.06, 0.02]} />
+                    <meshStandardMaterial color="#222222" />
+                  </mesh>
+                </group>
+              )}
+            </group>
+          )
+        }
+
+        if (obj.type === 'planter_box') {
+          return <PlanterBoxMesh key={obj.id} obj={obj} />
+        }
+
+        if (obj.type === 'planter_l_shaped') {
+          return <PlanterLMesh key={obj.id} obj={obj} />
+        }
+
+        if (obj.type === 'rock_bed') {
+          return <RockBedMesh key={obj.id} obj={obj} />
+        }
+
+        if (obj.type === 'fence_section') {
+          return <FenceMesh key={obj.id} obj={obj} />
+        }
+
         if (obj.type === 'wall') {
           const wallColor = obj.customProps?.color
             ? new THREE.Color(obj.customProps.color as string)
@@ -400,7 +404,11 @@ function renderPrefab(
         }
 
         if (obj.type === 'kitchen_straight') {
-          return <KitchenMesh key={obj.id} obj={obj} color={color} />
+          return <KitchenMesh key={obj.id} obj={obj} />
+        }
+
+        if (obj.type === 'bar') {
+          return <BarMesh key={obj.id} obj={obj} />
         }
 
         if (obj.type === 'smoker') {
@@ -451,6 +459,13 @@ function renderPrefab(
             ? new THREE.Color(obj.customProps.color as string)
             : color
           return <RetainingWallMesh key={obj.id} obj={obj} color={rwColor} />
+        }
+
+        if (obj.type === 'turf') {
+          const turfColor = obj.customProps?.color
+            ? new THREE.Color(obj.customProps.color as string)
+            : color
+          return <TurfMesh key={obj.id} obj={obj} color={turfColor} />
         }
 
         // Default box for other prefabs
@@ -549,6 +564,12 @@ function PatioCoverMesh({ obj, color }: { obj: PlacedObject3D; color: THREE.Colo
   const roofColor = obj.customProps?.roofColor
     ? new THREE.Color(obj.customProps.roofColor as string)
     : new THREE.Color('#8b7d6b')
+  const ceiling = (obj.customProps?.ceiling as string) ?? 'open'
+  const ceilingColor = (obj.customProps?.ceilingColor as string) ?? '#c4a882'
+  const fanCount = parseInt((obj.customProps?.fans as string) ?? '0', 10)
+  const fanDiameterIn = parseInt((obj.customProps?.fanDiameter as string) ?? '48', 10)
+  const fanRadius = fanDiameterIn / 12 / 2 // convert to feet radius
+  const lightCount = parseInt((obj.customProps?.lights as string) ?? '0', 10)
   const cx = obj.position[0] + widthFt / 2
   const cz = obj.position[2] + depthFt / 2
 
@@ -611,6 +632,24 @@ function PatioCoverMesh({ obj, color }: { obj: PlacedObject3D; color: THREE.Colo
           <boxGeometry args={[widthFt, beamH, beamW]} />
           <meshStandardMaterial color={coverColor} />
         </mesh>
+
+        {/* Side beams connecting front to back posts (one on each end) */}
+        {(() => {
+          const sideMidY = (frontBeamY + backBeamY) / 2
+          const sideRise = frontBeamY - backBeamY
+          const sideAngle = Math.atan2(sideRise, depthFt - postSize)
+          const sideLen = Math.sqrt((depthFt - postSize) ** 2 + sideRise ** 2)
+          return [
+            <mesh key="side-l" position={[postSize / 2, sideMidY, depthFt / 2]} rotation={[sideAngle, 0, 0]} castShadow>
+              <boxGeometry args={[beamW, beamH, sideLen]} />
+              <meshStandardMaterial color={coverColor} />
+            </mesh>,
+            <mesh key="side-r" position={[widthFt - postSize / 2, sideMidY, depthFt / 2]} rotation={[sideAngle, 0, 0]} castShadow>
+              <boxGeometry args={[beamW, beamH, sideLen]} />
+              <meshStandardMaterial color={coverColor} />
+            </mesh>,
+          ]
+        })()}
 
         {/* Rafters running front-to-back (depth direction), sitting on top of beams */}
         {rafterXPositions.map((rx, i) => {
@@ -728,6 +767,160 @@ function PatioCoverMesh({ obj, color }: { obj: PlacedObject3D; color: THREE.Colo
             </mesh>
           )
           return els
+        })()}
+
+        {/* Tongue & groove ceiling — planks under the rafters, extending to overhang */}
+        {ceiling === 'tongue_groove' && (() => {
+          const oh = overhang
+          // Ceiling sits below the rafters; plank bottom aligns with beam top
+          const ceilingY = frontBeamY + beamH / 2 + 0.04
+          const backCeilingY = roofStyle === 'tilt'
+            ? backBeamY + beamH / 2 + 0.04
+            : ceilingY
+          const plankW = 0.5 // 6-inch planks
+          const plankH = 0.04
+          // Extend planks to cover overhang on both sides (width)
+          const totalCeilingW = widthFt + oh * 2
+          const plankCount = Math.ceil(totalCeilingW / plankW)
+          // Extend planks to cover overhang on front and back (depth)
+          const totalCeilingD = depthFt + oh * 2
+          const planks: React.JSX.Element[] = []
+          for (let i = 0; i < plankCount; i++) {
+            const px = -oh + plankW / 2 + i * plankW
+            if (px - plankW / 2 > widthFt + oh) break
+            const pw = Math.min(plankW - 0.01, (widthFt + oh) - (px - plankW / 2))
+            const rise = ceilingY - backCeilingY
+            // For tilt: extrapolate ceiling Y at overhang edges
+            const frontOhY = ceilingY + (rise / depthFt) * oh
+            const backOhY = backCeilingY - (rise / depthFt) * oh
+            const midY = (frontOhY + backOhY) / 2 - plankH / 2
+            const totalRise = frontOhY - backOhY
+            const angle = Math.atan2(totalRise, totalCeilingD)
+            const slopeLen = Math.sqrt(totalCeilingD * totalCeilingD + totalRise * totalRise)
+            // Alternate slightly darker/lighter for plank definition
+            const shade = i % 2 === 0 ? ceilingColor : new THREE.Color(ceilingColor).multiplyScalar(0.9).getStyle()
+            planks.push(
+              <mesh key={`plank-${i}`} position={[px, midY, depthFt / 2]} rotation={[angle, 0, 0]}>
+                <boxGeometry args={[pw, plankH, slopeLen]} />
+                <meshStandardMaterial color={shade} roughness={0.85} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1} />
+              </mesh>
+            )
+          }
+          return planks
+        })()}
+
+        {/* Ceiling fans */}
+        {fanCount > 0 && (() => {
+          const fanOffset = ceiling === 'tongue_groove' ? 0.15 : 0.1
+          const fanY = frontBeamY + beamH / 2 - fanOffset
+          // Fan positions from sliders (percentage of width), with even-spacing defaults
+          const fanPosKeys = ['fan1Pos', 'fan2Pos', 'fan3Pos'] as const
+          const defaultPositions = (count: number) => {
+            const result: number[] = []
+            for (let i = 0; i < count; i++) {
+              result.push(count === 1 ? 50 : Math.round(((i + 1) / (count + 1)) * 100))
+            }
+            return result
+          }
+          const defaults = defaultPositions(fanCount)
+          const fans: React.JSX.Element[] = []
+          for (let i = 0; i < fanCount; i++) {
+            const pct = (obj.customProps?.[fanPosKeys[i]] as number) ?? defaults[i]
+            const fx = (pct / 100) * widthFt
+            const fz = depthFt / 2
+            // Interpolate Y for tilted roofs
+            const t = fz / depthFt
+            const fy = fanY * (1 - t) + (roofStyle === 'tilt' ? backBeamY + beamH / 2 - fanOffset : fanY) * t
+            fans.push(
+              <group key={`fan-${i}`} position={[fx, fy - 0.5, fz]}>
+                {/* Downrod */}
+                <mesh position={[0, 0.35, 0]}>
+                  <cylinderGeometry args={[0.03, 0.03, 0.7, 6]} />
+                  <meshStandardMaterial color="#888" metalness={0.6} roughness={0.3} />
+                </mesh>
+                {/* Motor housing */}
+                <mesh position={[0, 0, 0]}>
+                  <cylinderGeometry args={[0.2, 0.15, 0.2, 10]} />
+                  <meshStandardMaterial color="#666" metalness={0.5} roughness={0.3} />
+                </mesh>
+                {/* Blades — 5 blades, sized by fan diameter */}
+                {[0, 1, 2, 3, 4].map((b) => {
+                  const angle = (b / 5) * Math.PI * 2
+                  const bladeLen = fanRadius - 0.1
+                  return (
+                    <mesh
+                      key={`blade-${b}`}
+                      position={[Math.cos(angle) * (bladeLen / 2 + 0.15), -0.05, Math.sin(angle) * (bladeLen / 2 + 0.15)]}
+                      rotation={[0, -angle, 0]}
+                    >
+                      <boxGeometry args={[bladeLen, 0.02, 0.2]} />
+                      <meshStandardMaterial color="#8b7355" roughness={0.8} />
+                    </mesh>
+                  )
+                })}
+                {/* Light kit */}
+                <mesh position={[0, -0.15, 0]}>
+                  <sphereGeometry args={[0.15, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2]} />
+                  <meshStandardMaterial color="#f5f0e0" emissive="#f5e8c0" emissiveIntensity={0.3} transparent opacity={0.85} />
+                </mesh>
+              </group>
+            )
+          }
+          return fans
+        })()}
+
+        {/* Recessed lights — spread evenly along front and back edges like posts */}
+        {lightCount > 0 && (() => {
+          // Position lights below the ceiling (or rafter bottom if open)
+          const ceilOffset = ceiling === 'tongue_groove' ? 0.12 : 0.02
+          const lightY = frontBeamY + beamH / 2 - ceilOffset
+          const backLightY = roofStyle === 'tilt' ? backBeamY + beamH / 2 - ceilOffset : lightY
+          const lights: React.JSX.Element[] = []
+          // Split lights between front and back rows
+          const perSide = Math.ceil(lightCount / 2)
+          const frontCount = perSide
+          const backCount = lightCount - frontCount
+          const inset = depthFt * 0.25 // lights inset 25% from edges
+          // Front row — inset 2ft from each end so lights clear the beams
+          const xInset = 2
+          for (let i = 0; i < frontCount; i++) {
+            const lx = frontCount === 1 ? widthFt / 2 : xInset + (widthFt - xInset * 2) * (i / (frontCount - 1))
+            const lz = inset
+            const t = lz / depthFt
+            const ly = lightY * (1 - t) + backLightY * t
+            lights.push(
+              <group key={`light-f-${i}`} position={[lx, ly - 0.02, lz]}>
+                <mesh>
+                  <cylinderGeometry args={[0.15, 0.15, 0.04, 12]} />
+                  <meshStandardMaterial color="#d0d0d0" metalness={0.4} roughness={0.3} />
+                </mesh>
+                <mesh position={[0, -0.03, 0]}>
+                  <cylinderGeometry args={[0.12, 0.12, 0.02, 12]} />
+                  <meshStandardMaterial color="#fffbe6" emissive="#fff5cc" emissiveIntensity={0.5} />
+                </mesh>
+              </group>
+            )
+          }
+          // Back row
+          for (let i = 0; i < backCount; i++) {
+            const lx = backCount === 1 ? widthFt / 2 : xInset + (widthFt - xInset * 2) * (i / (backCount - 1))
+            const lz = depthFt - inset
+            const t = lz / depthFt
+            const ly = lightY * (1 - t) + backLightY * t
+            lights.push(
+              <group key={`light-b-${i}`} position={[lx, ly - 0.02, lz]}>
+                <mesh>
+                  <cylinderGeometry args={[0.15, 0.15, 0.04, 12]} />
+                  <meshStandardMaterial color="#d0d0d0" metalness={0.4} roughness={0.3} />
+                </mesh>
+                <mesh position={[0, -0.03, 0]}>
+                  <cylinderGeometry args={[0.12, 0.12, 0.02, 12]} />
+                  <meshStandardMaterial color="#fffbe6" emissive="#fff5cc" emissiveIntensity={0.5} />
+                </mesh>
+              </group>
+            )
+          }
+          return lights
         })()}
       </group>
     </group>
@@ -1401,11 +1594,612 @@ function GrillMesh({ obj }: { obj: PlacedObject3D; color: THREE.Color }) {
   )
 }
 
-function KitchenMesh({ obj, color }: { obj: PlacedObject3D; color: THREE.Color }) {
+function FenceMesh({ obj }: { obj: PlacedObject3D }) {
   const { widthFt, depthFt, heightFt } = obj.size
-  const topColor = new THREE.Color(
-    (obj.customProps?.countertopColor as string) ?? '#404040'
+  const fenceColor = (obj.customProps?.color as string) ?? '#c8a882'
+  const fenceType = (obj.customProps?.fenceType as string) ?? 'board_on_board'
+  const hw = widthFt / 2
+  const postW = 0.3
+  const postCount = Math.max(2, Math.round(widthFt / 6) + 1)
+  const railH = 0.08
+  const railD = 0.15
+
+  // Rod iron: vertical bars between posts with top/bottom rails
+  if (fenceType === 'rod_iron') {
+    const barSpacing = 0.35
+    const barCount = Math.max(1, Math.floor(widthFt / barSpacing) - 1)
+    const bottomRailY = 0.15 // bottom rail center
+    const topRailY = heightFt - railH / 2
+    const barBottom = bottomRailY + railH / 2
+    const barTop = topRailY - railH / 2
+    const barLen = barTop - barBottom
+    const barMidY = (barTop + barBottom) / 2
+    return (
+      <group
+        position={[obj.position[0] + hw, 0, obj.position[2] + depthFt / 2]}
+        rotation={[0, obj.rotation[1], 0]}
+      >
+        {/* Posts */}
+        {Array.from({ length: postCount }).map((_, i) => {
+          const x = -hw + (i * widthFt) / (postCount - 1)
+          return (
+            <mesh key={`p${i}`} position={[x, heightFt / 2, 0]} castShadow>
+              <boxGeometry args={[postW * 0.7, heightFt, postW * 0.7]} />
+              <meshStandardMaterial color={fenceColor} metalness={0.4} roughness={0.4} />
+            </mesh>
+          )
+        })}
+        {/* Top rail */}
+        <mesh position={[0, topRailY, 0]} castShadow>
+          <boxGeometry args={[widthFt, railH, railD * 0.5]} />
+          <meshStandardMaterial color={fenceColor} metalness={0.4} roughness={0.4} />
+        </mesh>
+        {/* Bottom rail */}
+        <mesh position={[0, bottomRailY, 0]} castShadow>
+          <boxGeometry args={[widthFt, railH, railD * 0.5]} />
+          <meshStandardMaterial color={fenceColor} metalness={0.4} roughness={0.4} />
+        </mesh>
+        {/* Vertical bars — span from bottom rail to top rail */}
+        {Array.from({ length: barCount }).map((_, i) => {
+          const x = -hw + postW + ((widthFt - postW * 2) * (i + 1)) / (barCount + 1)
+          return (
+            <mesh key={`b${i}`} position={[x, barMidY, 0]} castShadow>
+              <cylinderGeometry args={[0.025, 0.025, barLen, 6]} />
+              <meshStandardMaterial color={fenceColor} metalness={0.4} roughness={0.4} />
+            </mesh>
+          )
+        })}
+        {/* Finials on top of bars */}
+        {Array.from({ length: barCount }).map((_, i) => {
+          const x = -hw + postW + ((widthFt - postW * 2) * (i + 1)) / (barCount + 1)
+          return (
+            <mesh key={`f${i}`} position={[x, heightFt + 0.04, 0]} castShadow>
+              <sphereGeometry args={[0.04, 6, 6]} />
+              <meshStandardMaterial color={fenceColor} metalness={0.4} roughness={0.4} />
+            </mesh>
+          )
+        })}
+      </group>
+    )
+  }
+
+  // Chain link: posts + translucent panel
+  if (fenceType === 'chain_link') {
+    return (
+      <group
+        position={[obj.position[0] + hw, 0, obj.position[2] + depthFt / 2]}
+        rotation={[0, obj.rotation[1], 0]}
+      >
+        {Array.from({ length: postCount }).map((_, i) => {
+          const x = -hw + (i * widthFt) / (postCount - 1)
+          return (
+            <mesh key={`p${i}`} position={[x, heightFt / 2, 0]} castShadow>
+              <cylinderGeometry args={[0.08, 0.08, heightFt, 8]} />
+              <meshStandardMaterial color="#999" metalness={0.3} />
+            </mesh>
+          )
+        })}
+        {/* Top rail */}
+        <mesh position={[0, heightFt, 0]} castShadow>
+          <cylinderGeometry args={[0.04, 0.04, widthFt, 8]} />
+          <meshStandardMaterial color="#999" metalness={0.3} />
+        </mesh>
+        {/* Chain link mesh — translucent panel */}
+        <mesh position={[0, heightFt / 2, 0]}>
+          <boxGeometry args={[widthFt, heightFt, 0.02]} />
+          <meshStandardMaterial color="#c0c0c0" transparent opacity={0.25} metalness={0.3} side={2} />
+        </mesh>
+      </group>
+    )
+  }
+
+  // Board-on-board, privacy, picket: solid/semi-solid wood panels
+  const isPicket = fenceType === 'picket'
+  const boardW = isPicket ? 0.3 : 0.5
+  const boardGap = isPicket ? 0.15 : 0
+  const boardH = isPicket ? heightFt - 0.5 : heightFt
+  const boardCount = Math.max(1, Math.floor(widthFt / (boardW + boardGap)))
+
+  return (
+    <group
+      position={[obj.position[0] + hw, 0, obj.position[2] + depthFt / 2]}
+      rotation={[0, obj.rotation[1], 0]}
+    >
+      {/* Posts */}
+      {Array.from({ length: postCount }).map((_, i) => {
+        const x = -hw + (i * widthFt) / (postCount - 1)
+        return (
+          <mesh key={`p${i}`} position={[x, heightFt / 2, 0]} castShadow>
+            <boxGeometry args={[postW, heightFt, postW]} />
+            <meshStandardMaterial color={fenceColor} />
+          </mesh>
+        )
+      })}
+      {/* Rails */}
+      <mesh position={[0, heightFt * 0.2, 0]} castShadow>
+        <boxGeometry args={[widthFt, railH, railD]} />
+        <meshStandardMaterial color={fenceColor} />
+      </mesh>
+      <mesh position={[0, heightFt * 0.8, 0]} castShadow>
+        <boxGeometry args={[widthFt, railH, railD]} />
+        <meshStandardMaterial color={fenceColor} />
+      </mesh>
+      {/* Boards */}
+      {isPicket ? (
+        // Individual pickets with gaps and pointed tops
+        Array.from({ length: boardCount }).map((_, i) => {
+          const x = -hw + postW + i * (boardW + boardGap) + boardW / 2
+          if (x > hw - postW) return null
+          return (
+            <mesh key={`b${i}`} position={[x, boardH / 2, 0]} castShadow>
+              <boxGeometry args={[boardW, boardH, 0.08]} />
+              <meshStandardMaterial color={fenceColor} />
+            </mesh>
+          )
+        })
+      ) : (
+        // Solid panel (board on board / privacy)
+        <mesh position={[0, heightFt / 2, 0]} castShadow>
+          <boxGeometry args={[widthFt - postW, heightFt - 0.1, 0.08]} />
+          <meshStandardMaterial color={fenceColor} />
+        </mesh>
+      )}
+    </group>
   )
+}
+
+function RockBedMesh({ obj }: { obj: PlacedObject3D }) {
+  const { widthFt, depthFt, heightFt } = obj.size
+  const rockColor = (obj.customProps?.color as string) ?? '#8a8178'
+  const bordered = (obj.customProps?.bordered as boolean) ?? false
+  const borderColor = (obj.customProps?.borderColor as string) ?? '#5a5a5a'
+  const borderH = heightFt + 0.05
+  const borderT = 0.08
+
+  return (
+    <group
+      position={[obj.position[0] + widthFt / 2, 0, obj.position[2] + depthFt / 2]}
+      rotation={[0, obj.rotation[1], 0]}
+    >
+      {/* Rock bed surface */}
+      <mesh position={[0, heightFt / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[widthFt, heightFt, depthFt]} />
+        <meshStandardMaterial color={rockColor} roughness={0.9} />
+      </mesh>
+      {/* Subtle edge lip — always visible so the bed has a defined boundary */}
+      {!bordered && (
+        <>
+          <mesh position={[0, heightFt + 0.01, -depthFt / 2 + 0.02]} castShadow>
+            <boxGeometry args={[widthFt, 0.02, 0.04]} />
+            <meshStandardMaterial color="#555" />
+          </mesh>
+          <mesh position={[0, heightFt + 0.01, depthFt / 2 - 0.02]} castShadow>
+            <boxGeometry args={[widthFt, 0.02, 0.04]} />
+            <meshStandardMaterial color="#555" />
+          </mesh>
+          <mesh position={[-widthFt / 2 + 0.02, heightFt + 0.01, 0]} castShadow>
+            <boxGeometry args={[0.04, 0.02, depthFt - 0.04]} />
+            <meshStandardMaterial color="#555" />
+          </mesh>
+          <mesh position={[widthFt / 2 - 0.02, heightFt + 0.01, 0]} castShadow>
+            <boxGeometry args={[0.04, 0.02, depthFt - 0.04]} />
+            <meshStandardMaterial color="#555" />
+          </mesh>
+        </>
+      )}
+      {/* Border edges */}
+      {bordered && (
+        <>
+          <mesh position={[0, borderH / 2, -depthFt / 2 + borderT / 2]} castShadow>
+            <boxGeometry args={[widthFt + borderT * 2, borderH, borderT]} />
+            <meshStandardMaterial color={borderColor} />
+          </mesh>
+          <mesh position={[0, borderH / 2, depthFt / 2 - borderT / 2]} castShadow>
+            <boxGeometry args={[widthFt + borderT * 2, borderH, borderT]} />
+            <meshStandardMaterial color={borderColor} />
+          </mesh>
+          <mesh position={[-widthFt / 2 + borderT / 2, borderH / 2, 0]} castShadow>
+            <boxGeometry args={[borderT, borderH, depthFt - borderT * 2]} />
+            <meshStandardMaterial color={borderColor} />
+          </mesh>
+          <mesh position={[widthFt / 2 - borderT / 2, borderH / 2, 0]} castShadow>
+            <boxGeometry args={[borderT, borderH, depthFt - borderT * 2]} />
+            <meshStandardMaterial color={borderColor} />
+          </mesh>
+        </>
+      )}
+    </group>
+  )
+}
+
+// Planter fill — generates scattered pieces for mulch or river rock
+function PlanterFill({
+  fillType,
+  width,
+  depth,
+  height,
+  rockSize = 'medium',
+  rockColor = 'gray',
+}: {
+  fillType: string
+  width: number
+  depth: number
+  height: number
+  rockSize?: string
+  rockColor?: string
+}) {
+  const pieces = useMemo(() => {
+    if (fillType === 'soil') return null
+
+    const items: { pos: [number, number, number]; scale: [number, number, number]; rot: [number, number, number]; color: string }[] = []
+    // Seeded pseudo-random for consistent look
+    const rand = (i: number, offset: number) => {
+      const x = Math.sin(i * 127.1 + offset * 311.7) * 43758.5453
+      return x - Math.floor(x)
+    }
+
+    const area = width * depth
+    const count = Math.min(Math.floor(area * 12), 200) // density based on area
+
+    if (fillType === 'mulch') {
+      const colors = ['#5c3a1e', '#7a4a2a', '#4a2e14', '#6b3f20', '#8a5530', '#3d2510']
+      for (let i = 0; i < count; i++) {
+        const px = (rand(i, 0) - 0.5) * (width * 0.9)
+        const pz = (rand(i, 1) - 0.5) * (depth * 0.9)
+        const py = height * 0.65 + rand(i, 2) * height * 0.15
+        const chipLen = 0.06 + rand(i, 3) * 0.1
+        const chipW = 0.02 + rand(i, 4) * 0.03
+        const chipH = 0.01 + rand(i, 5) * 0.015
+        const rotY = rand(i, 6) * Math.PI * 2
+        const rotX = (rand(i, 7) - 0.5) * 0.6
+        items.push({
+          pos: [px, py, pz],
+          scale: [chipLen, chipH, chipW],
+          rot: [rotX, rotY, 0],
+          color: colors[Math.floor(rand(i, 8) * colors.length)],
+        })
+      }
+    } else if (fillType === 'river_rock') {
+      const grayPalette = ['#8a8a8a', '#a0a0a0', '#707070', '#b8b8b8', '#989898', '#787878', '#c0c0c0', '#686868', '#a8a8a8', '#909090']
+      const naturalPalette = ['#8a7560', '#a08870', '#6b5a48', '#b09880', '#907a65', '#c0a888', '#786550', '#9a8570', '#b5a08a', '#7a6b58']
+      const mixedPalette = ['#8a8a8a', '#a08870', '#707070', '#b09880', '#989088', '#786550', '#b8b0a8', '#6b5a48', '#9a9490', '#907a65']
+      const colors = rockColor === 'natural' ? naturalPalette
+        : rockColor === 'mixed' ? mixedPalette
+        : grayPalette
+      // Size presets: base rock radius and density multiplier
+      const sizeConfig = rockSize === 'small'
+        ? { base: 0.03, variance: 0.04, density: 100 }
+        : rockSize === 'large'
+        ? { base: 0.1, variance: 0.12, density: 30 }
+        : { base: 0.05, variance: 0.07, density: 55 } // medium
+      const rockCount = Math.min(Math.floor(area * sizeConfig.density), 500)
+      for (let i = 0; i < rockCount; i++) {
+        const px = (rand(i, 0) - 0.5) * (width * 0.95)
+        const pz = (rand(i, 1) - 0.5) * (depth * 0.95)
+        const sz = sizeConfig.base + rand(i, 3) * sizeConfig.variance
+        // Stack rocks in layers for a tightly packed look
+        const layer = Math.floor(rand(i, 9) * 4)
+        const py = height * 0.5 + layer * sz * 0.35 + rand(i, 2) * height * 0.06
+        const sx = sz * (0.7 + rand(i, 4) * 0.6)
+        const sy = sz * (0.3 + rand(i, 5) * 0.3)
+        const sz2 = sz * (0.7 + rand(i, 6) * 0.6)
+        const rotY = rand(i, 7) * Math.PI * 2
+        const rotX = (rand(i, 10) - 0.5) * 0.4
+        items.push({
+          pos: [px, py, pz],
+          scale: [sx, sy, sz2],
+          rot: [rotX, rotY, 0],
+          color: colors[Math.floor(rand(i, 8) * colors.length)],
+        })
+      }
+    }
+    return items
+  }, [fillType, width, depth, height, rockSize, rockColor])
+
+  if (fillType === 'soil') {
+    return (
+      <mesh position={[0, height * 0.35, 0]}>
+        <boxGeometry args={[width, height * 0.7, depth]} />
+        <meshStandardMaterial color="#3d2b1f" roughness={1} />
+      </mesh>
+    )
+  }
+
+  // Base layer under mulch/rocks
+  const baseColor = fillType === 'mulch' ? '#2a1a0a' : '#3d2b1f'
+
+  return (
+    <>
+      {/* Base soil/dirt layer */}
+      <mesh position={[0, height * 0.3, 0]}>
+        <boxGeometry args={[width, height * 0.6, depth]} />
+        <meshStandardMaterial color={baseColor} roughness={1} />
+      </mesh>
+      {/* Individual pieces */}
+      {pieces?.map((p, i) =>
+        fillType === 'river_rock' ? (
+          <mesh key={i} position={p.pos} rotation={p.rot} scale={p.scale} castShadow>
+            <sphereGeometry args={[1, 7, 5]} />
+            <meshStandardMaterial color={p.color} roughness={0.4} metalness={0.05} />
+          </mesh>
+        ) : (
+          <mesh key={i} position={p.pos} rotation={p.rot} castShadow>
+            <boxGeometry args={[p.scale[0], p.scale[1], p.scale[2]]} />
+            <meshStandardMaterial color={p.color} roughness={0.95} />
+          </mesh>
+        )
+      )}
+    </>
+  )
+}
+
+// Map our species to ez-tree presets and leaf tint overrides
+const SPECIES_TO_PRESET: Record<string, { preset: string; leafTint?: number; barkTint?: number }> = {
+  generic:         { preset: 'Oak Medium' },
+  oak:             { preset: 'Oak Medium' },
+  birch:           { preset: 'Aspen Medium', barkTint: 0xd4cfc4 },
+  red_maple:       { preset: 'Oak Medium', leafTint: 0xb22222 },
+  dwarf_red_maple: { preset: 'Oak Small', leafTint: 0x8b1a1a },
+  japanese_maple:  { preset: 'Oak Small', leafTint: 0x9b1b30 },
+  crepe_myrtle:    { preset: 'Aspen Small', leafTint: 0xc75080 },
+  holly:           { preset: 'Pine Small', leafTint: 0x1a4d1a },
+  magnolia:        { preset: 'Oak Medium', leafTint: 0x2e6b2e },
+  dogwood:         { preset: 'Aspen Small', leafTint: 0xe8a0b8 },
+  weeping_willow:  { preset: 'Ash Large', leafTint: 0x6b8a3a },
+  palm:            { preset: 'Ash Small', leafTint: 0x2d5a27 },
+}
+
+function EzTreeMesh({ obj }: { obj: PlacedObject3D }) {
+  const { widthFt, heightFt } = obj.size
+  const species = (obj.customProps?.species as string) ?? 'generic'
+  const treeSize = (obj.customProps?.treeSize as string) ?? 'small'
+  const foliageHex = obj.customProps?.color as string | undefined
+  const seed = obj.id.charCodeAt(0) + obj.id.charCodeAt(1) * 256
+
+  const treeObj = useMemo(() => {
+    const mapping = SPECIES_TO_PRESET[species] ?? SPECIES_TO_PRESET.generic
+
+    // Adjust preset size based on treeSize prop
+    let preset = mapping.preset
+    if (treeSize === 'medium') {
+      preset = preset.replace(/Small|Large/, 'Medium')
+    } else if (treeSize === 'large') {
+      preset = preset.replace(/Small|Medium/, 'Large')
+    } else {
+      preset = preset.replace(/Medium|Large/, 'Small')
+    }
+
+    const t = new Tree()
+    t.loadPreset(preset)
+    t.options.seed = seed
+
+    // Apply foliage color override
+    if (foliageHex) {
+      t.options.leaves.tint = parseInt(foliageHex.replace('#', ''), 16)
+    } else if (mapping.leafTint !== undefined) {
+      t.options.leaves.tint = mapping.leafTint
+    }
+
+    if (mapping.barkTint !== undefined) {
+      t.options.bark.tint = mapping.barkTint
+    }
+
+    t.generate()
+
+    // Scale to fit our bounding box
+    const box = new THREE.Box3().setFromObject(t)
+    const naturalH = box.max.y - box.min.y
+    const naturalW = Math.max(box.max.x - box.min.x, box.max.z - box.min.z)
+    const scaleH = heightFt / (naturalH || 1)
+    const scaleW = widthFt / (naturalW || 1)
+    const s = Math.min(scaleH, scaleW)
+    t.scale.set(s, s, s)
+
+    return t
+  }, [species, treeSize, foliageHex, seed, widthFt, heightFt])
+
+  const cx = obj.position[0] + obj.size.widthFt / 2
+  const cz = obj.position[2] + obj.size.depthFt / 2
+
+  return (
+    <primitive
+      object={treeObj}
+      position={[cx, 0, cz]}
+      rotation={[0, obj.rotation[1], 0]}
+    />
+  )
+}
+
+function PlanterLMesh({ obj }: { obj: PlacedObject3D }) {
+  const { widthFt, depthFt } = obj.size
+  const planterHIn = (obj.customProps?.planterHeight as number) ?? 24
+  const heightFt = planterHIn / 12
+  const legW = (obj.customProps?.legWidth as number) ?? 2
+  const boxColor = (obj.customProps?.color as string) ?? '#6b4226'
+  const t = ((obj.customProps?.wallThickness as number) ?? 4) / 12
+  const capstone = (obj.customProps?.capstone as boolean) ?? true
+  const capColor = (obj.customProps?.capColor as string) ?? '#a0a0a0'
+  const fillType = (obj.customProps?.fillType as string) ?? 'soil'
+  const rockSz = (obj.customProps?.rockSize as string) ?? 'medium'
+  const rockClr = (obj.customProps?.rockColor as string) ?? 'gray'
+  const capH = 0.12
+  const bodyH = capstone ? heightFt - capH : heightFt
+  const cap = 0.06 // capstone overhang
+
+  // L-shape: horizontal arm along X (full width × legW depth)
+  //          vertical arm along Z (legW width × full depth)
+  // Origin at corner where the two arms meet (bottom-left of the L)
+
+  return (
+    <group
+      position={[obj.position[0], 0, obj.position[2]]}
+      rotation={[0, obj.rotation[1], 0]}
+    >
+      {/* === Horizontal arm walls (along X, depth = legW) === */}
+      {/* Front wall (z=0) */}
+      <mesh position={[widthFt / 2, bodyH / 2, t / 2]} castShadow>
+        <boxGeometry args={[widthFt, bodyH, t]} />
+        <meshStandardMaterial color={boxColor} />
+      </mesh>
+      {/* Back wall (z=legW) — only the portion beyond the vertical arm */}
+      <mesh position={[(legW + widthFt) / 2, bodyH / 2, legW - t / 2]} castShadow>
+        <boxGeometry args={[widthFt - legW, bodyH, t]} />
+        <meshStandardMaterial color={boxColor} />
+      </mesh>
+      {/* Right wall of horizontal arm */}
+      <mesh position={[widthFt - t / 2, bodyH / 2, legW / 2]} castShadow>
+        <boxGeometry args={[t, bodyH, legW - t * 2]} />
+        <meshStandardMaterial color={boxColor} />
+      </mesh>
+
+      {/* === Vertical arm walls (along Z, width = legW) === */}
+      {/* Left wall (x=0) */}
+      <mesh position={[t / 2, bodyH / 2, depthFt / 2]} castShadow>
+        <boxGeometry args={[t, bodyH, depthFt]} />
+        <meshStandardMaterial color={boxColor} />
+      </mesh>
+      {/* Right wall of vertical arm (x=legW) — only the portion beyond the horizontal arm */}
+      <mesh position={[legW - t / 2, bodyH / 2, (legW + depthFt) / 2]} castShadow>
+        <boxGeometry args={[t, bodyH, depthFt - legW]} />
+        <meshStandardMaterial color={boxColor} />
+      </mesh>
+      {/* Bottom wall of vertical arm (z=depthFt) */}
+      <mesh position={[legW / 2, bodyH / 2, depthFt - t / 2]} castShadow>
+        <boxGeometry args={[legW - t * 2, bodyH, t]} />
+        <meshStandardMaterial color={boxColor} />
+      </mesh>
+
+      {/* === Capstone === */}
+      {capstone && (
+        <>
+          {/* Horizontal arm capstone — front */}
+          <mesh position={[widthFt / 2, bodyH + capH / 2, t / 2]} castShadow>
+            <boxGeometry args={[widthFt + cap, capH, t + cap]} />
+            <meshStandardMaterial color={capColor} />
+          </mesh>
+          {/* Horizontal arm capstone — back (beyond vertical arm) */}
+          <mesh position={[(legW + widthFt) / 2, bodyH + capH / 2, legW - t / 2]} castShadow>
+            <boxGeometry args={[widthFt - legW + cap, capH, t + cap]} />
+            <meshStandardMaterial color={capColor} />
+          </mesh>
+          {/* Horizontal arm capstone — right */}
+          <mesh position={[widthFt - t / 2, bodyH + capH / 2, legW / 2]} castShadow>
+            <boxGeometry args={[t + cap, capH, legW - t * 2 + cap]} />
+            <meshStandardMaterial color={capColor} />
+          </mesh>
+          {/* Vertical arm capstone — left */}
+          <mesh position={[t / 2, bodyH + capH / 2, depthFt / 2]} castShadow>
+            <boxGeometry args={[t + cap, capH, depthFt + cap]} />
+            <meshStandardMaterial color={capColor} />
+          </mesh>
+          {/* Vertical arm capstone — right (beyond horizontal arm) */}
+          <mesh position={[legW - t / 2, bodyH + capH / 2, (legW + depthFt) / 2]} castShadow>
+            <boxGeometry args={[t + cap, capH, depthFt - legW + cap]} />
+            <meshStandardMaterial color={capColor} />
+          </mesh>
+          {/* Vertical arm capstone — bottom */}
+          <mesh position={[legW / 2, bodyH + capH / 2, depthFt - t / 2]} castShadow>
+            <boxGeometry args={[legW - t * 2 + cap, capH, t + cap]} />
+            <meshStandardMaterial color={capColor} />
+          </mesh>
+        </>
+      )}
+
+      {/* === Fill — two arms of the L === */}
+      {/* Horizontal arm fill */}
+      <group position={[widthFt / 2, 0, legW / 2]}>
+        <PlanterFill fillType={fillType} width={widthFt - t * 2} depth={legW - t * 2} height={bodyH} rockSize={rockSz} rockColor={rockClr} />
+      </group>
+      {/* Vertical arm fill (below the horizontal arm) */}
+      <group position={[legW / 2, 0, (legW + depthFt) / 2]}>
+        <PlanterFill fillType={fillType} width={legW - t * 2} depth={depthFt - legW} height={bodyH} rockSize={rockSz} rockColor={rockClr} />
+      </group>
+    </group>
+  )
+}
+
+function PlanterBoxMesh({ obj }: { obj: PlacedObject3D }) {
+  const { widthFt, depthFt, heightFt } = obj.size
+  const boxColor = (obj.customProps?.color as string) ?? '#6b4226'
+  const sides = (obj.customProps?.sides as string) ?? '4'
+  const t = ((obj.customProps?.wallThickness as number) ?? 4) / 12
+  const capstone = (obj.customProps?.capstone as boolean) ?? true
+  const capColor = (obj.customProps?.capColor as string) ?? '#a0a0a0'
+  const fillType = (obj.customProps?.fillType as string) ?? 'soil'
+  const rockSz = (obj.customProps?.rockSize as string) ?? 'medium'
+  const rockClr = (obj.customProps?.rockColor as string) ?? 'gray'
+  const capH = 0.12
+  const hw = widthFt / 2
+  const hd = depthFt / 2
+  const bodyH = capstone ? heightFt - capH : heightFt
+
+  return (
+    <group
+      position={[obj.position[0] + hw, 0, obj.position[2] + hd]}
+      rotation={[0, obj.rotation[1], 0]}
+    >
+      {/* Front wall */}
+      <mesh position={[0, bodyH / 2, -hd + t / 2]} castShadow>
+        <boxGeometry args={[widthFt, bodyH, t]} />
+        <meshStandardMaterial color={boxColor} />
+      </mesh>
+      {/* Back wall (only if 4 sides) */}
+      {sides === '4' && (
+        <mesh position={[0, bodyH / 2, hd - t / 2]} castShadow>
+          <boxGeometry args={[widthFt, bodyH, t]} />
+          <meshStandardMaterial color={boxColor} />
+        </mesh>
+      )}
+      {/* Left wall */}
+      <mesh position={[-hw + t / 2, bodyH / 2, 0]} castShadow>
+        <boxGeometry args={[t, bodyH, depthFt - t * 2]} />
+        <meshStandardMaterial color={boxColor} />
+      </mesh>
+      {/* Right wall */}
+      <mesh position={[hw - t / 2, bodyH / 2, 0]} castShadow>
+        <boxGeometry args={[t, bodyH, depthFt - t * 2]} />
+        <meshStandardMaterial color={boxColor} />
+      </mesh>
+      {/* Capstone */}
+      {capstone && (
+        <>
+          <mesh position={[0, bodyH + capH / 2, -hd + t / 2]} castShadow>
+            <boxGeometry args={[widthFt + 0.06, capH, t + 0.06]} />
+            <meshStandardMaterial color={capColor} />
+          </mesh>
+          {sides === '4' && (
+            <mesh position={[0, bodyH + capH / 2, hd - t / 2]} castShadow>
+              <boxGeometry args={[widthFt + 0.06, capH, t + 0.06]} />
+              <meshStandardMaterial color={capColor} />
+            </mesh>
+          )}
+          <mesh position={[-hw + t / 2, bodyH + capH / 2, 0]} castShadow>
+            <boxGeometry args={[t + 0.06, capH, depthFt - t * 2 + 0.06]} />
+            <meshStandardMaterial color={capColor} />
+          </mesh>
+          <mesh position={[hw - t / 2, bodyH + capH / 2, 0]} castShadow>
+            <boxGeometry args={[t + 0.06, capH, depthFt - t * 2 + 0.06]} />
+            <meshStandardMaterial color={capColor} />
+          </mesh>
+        </>
+      )}
+      {/* Fill */}
+      <PlanterFill
+        fillType={fillType}
+        width={widthFt - t * 2}
+        depth={depthFt - t * 2}
+        height={bodyH}
+        rockSize={rockSz}
+        rockColor={rockClr}
+      />
+    </group>
+  )
+}
+
+function KitchenMesh({ obj }: { obj: PlacedObject3D }) {
+  const { widthFt, depthFt, heightFt } = obj.size
+  const baseHex = (obj.customProps?.color as string) ?? '#6b6b6b'
+  const topHex = (obj.customProps?.countertopColor as string) ?? '#404040'
   const hasEggStand = (obj.customProps?.hasEggStand as boolean) ?? false
   const eggSide = (obj.customProps?.eggStandSide as string) ?? 'right'
   const eggStandW = ((obj.customProps?.eggStandWidth as number) ?? 30) / 12
@@ -1420,12 +2214,12 @@ function KitchenMesh({ obj, color }: { obj: PlacedObject3D; color: THREE.Color }
       {/* Base cabinet */}
       <mesh position={[0, (heightFt - 0.15) / 2, 0]} castShadow>
         <boxGeometry args={[widthFt - 0.02, heightFt - 0.15, depthFt - 0.02]} />
-        <meshStandardMaterial color={color} />
+        <meshStandardMaterial color={baseHex} />
       </mesh>
       {/* Countertop */}
       <mesh position={[0, heightFt - 0.075, 0]} castShadow>
         <boxGeometry args={[widthFt + 0.08, 0.15, depthFt + 0.04]} />
-        <meshStandardMaterial color={topColor} />
+        <meshStandardMaterial color={topHex} />
       </mesh>
       {/* Egg stand extension */}
       {hasEggStand && (
@@ -1433,8 +2227,8 @@ function KitchenMesh({ obj, color }: { obj: PlacedObject3D; color: THREE.Color }
           standW={eggStandW}
           standDepth={depthFt}
           standH={eggStandH}
-          topColor={topColor}
-          baseColor={color}
+          topColor={new THREE.Color(topHex)}
+          baseColor={new THREE.Color(baseHex)}
           side={eggSide}
           kitchenW={widthFt}
           mounting={eggMounting}
@@ -1444,15 +2238,46 @@ function KitchenMesh({ obj, color }: { obj: PlacedObject3D; color: THREE.Color }
   )
 }
 
+function BarMesh({ obj }: { obj: PlacedObject3D }) {
+  const { widthFt, depthFt, heightFt } = obj.size
+  const baseHex = (obj.customProps?.color as string) ?? '#6b6b6b'
+  const topHex = (obj.customProps?.countertopColor as string) ?? '#404040'
+  const wallThickIn = (obj.customProps?.wallThickness as number) ?? 12
+  const overhangIn = (obj.customProps?.countertopOverhang as number) ?? 8
+  const topThickIn = (obj.customProps?.countertopThickness as number) ?? 2
+  const wallThickFt = wallThickIn / 12
+  const overhangFt = overhangIn / 12
+  const topThickFt = topThickIn / 12
+  const counterDepthFt = wallThickFt + overhangFt
+
+  // Wall is centered within the total bounding box depth,
+  // shifted back so the countertop overhang extends toward the front (guest side)
+  const wallOffsetZ = overhangFt / 2
+
+  return (
+    <group
+      position={[obj.position[0] + widthFt / 2, 0, obj.position[2] + depthFt / 2]}
+      rotation={[0, obj.rotation[1], 0]}
+    >
+      {/* Knee wall */}
+      <mesh position={[0, (heightFt - topThickFt) / 2, wallOffsetZ]} castShadow>
+        <boxGeometry args={[widthFt, heightFt - topThickFt, wallThickFt]} />
+        <meshStandardMaterial color={baseHex} />
+      </mesh>
+      {/* Countertop — overhangs toward front (negative Z) */}
+      <mesh position={[0, heightFt - topThickFt / 2, 0]} castShadow>
+        <boxGeometry args={[widthFt + 0.08, topThickFt, counterDepthFt]} />
+        <meshStandardMaterial color={topHex} />
+      </mesh>
+    </group>
+  )
+}
+
 function LKitchenMesh({ obj }: { obj: PlacedObject3D }) {
   const { widthFt, depthFt, heightFt } = obj.size
   const legW = (obj.customProps?.legWidth as number) ?? 3
-  const topColor = new THREE.Color(
-    (obj.customProps?.countertopColor as string) ?? '#404040'
-  )
-  const baseColor = new THREE.Color(
-    (obj.customProps?.color as string) ?? '#6b6b6b'
-  )
+  const topHex = (obj.customProps?.countertopColor as string) ?? '#404040'
+  const baseHex = (obj.customProps?.color as string) ?? '#6b6b6b'
   const hasEggStand = (obj.customProps?.hasEggStand as boolean) ?? false
   const eggSide = (obj.customProps?.eggStandSide as string) ?? 'right'
   const eggStandW = ((obj.customProps?.eggStandWidth as number) ?? 30) / 12
@@ -1473,34 +2298,48 @@ function LKitchenMesh({ obj }: { obj: PlacedObject3D }) {
         {/* Arm along X (top of L) — full width, legW deep */}
         <mesh position={[widthFt / 2, (heightFt - 0.15) / 2, legW / 2]} castShadow>
           <boxGeometry args={[widthFt - 0.02, heightFt - 0.15, legW - 0.02]} />
-          <meshStandardMaterial color={baseColor} />
+          <meshStandardMaterial color={baseHex} />
         </mesh>
         <mesh position={[widthFt / 2, heightFt - 0.075, legW / 2]} castShadow>
           <boxGeometry args={[widthFt + 0.08, 0.15, legW + 0.04]} />
-          <meshStandardMaterial color={topColor} />
+          <meshStandardMaterial color={topHex} />
         </mesh>
 
         {/* Arm along Z (left side of L) — legW wide, starts below X-arm */}
         <mesh position={[legW / 2, (heightFt - 0.15) / 2, legW + zArmLen / 2]} castShadow>
           <boxGeometry args={[legW - 0.02, heightFt - 0.15, zArmLen - 0.02]} />
-          <meshStandardMaterial color={baseColor} />
+          <meshStandardMaterial color={baseHex} />
         </mesh>
         <mesh position={[legW / 2, heightFt - 0.075, legW + zArmLen / 2]} castShadow>
           <boxGeometry args={[legW + 0.04, 0.15, zArmLen + 0.04]} />
-          <meshStandardMaterial color={topColor} />
+          <meshStandardMaterial color={topHex} />
         </mesh>
 
-        {/* Egg stand extension off the X-arm — positioned relative to inner group origin */}
-        {hasEggStand && (
+        {/* Egg stand extension — horizontal arm or vertical arm */}
+        {hasEggStand && eggSide === 'horizontal' && (
           <group position={[widthFt / 2, 0, legW / 2]}>
             <EggStandExtension
               standW={eggStandW}
               standDepth={legW}
               standH={eggStandH}
-              topColor={topColor}
-              baseColor={baseColor}
-              side={eggSide}
+              topColor={new THREE.Color(topHex)}
+              baseColor={new THREE.Color(baseHex)}
+              side="right"
               kitchenW={widthFt}
+              mounting={eggMounting}
+            />
+          </group>
+        )}
+        {hasEggStand && eggSide === 'vertical' && (
+          <group position={[legW / 2, 0, legW + zArmLen]} rotation={[0, -Math.PI / 2, 0]}>
+            <EggStandExtension
+              standW={eggStandW}
+              standDepth={legW}
+              standH={eggStandH}
+              topColor={new THREE.Color(topHex)}
+              baseColor={new THREE.Color(baseHex)}
+              side="right"
+              kitchenW={0}
               mounting={eggMounting}
             />
           </group>
@@ -2007,6 +2846,76 @@ function SmokerMesh({ obj, color, style }: { obj: PlacedObject3D; color: THREE.C
         <cylinderGeometry args={[0.15, 0.2, 0.3, 8]} />
         <meshStandardMaterial color="#555" />
       </mesh>
+    </group>
+  )
+}
+
+function TurfMesh({ obj, color }: { obj: PlacedObject3D; color: THREE.Color }) {
+  const { widthFt, depthFt } = obj.size
+  const turfType = (obj.customProps?.turfType as string) ?? 'natural'
+  const grassHeightIn = (obj.customProps?.grassHeight as number) ?? 2
+  const grassHeight = grassHeightIn / 12 // convert to feet
+  const cx = obj.position[0] + widthFt / 2
+  const cz = obj.position[2] + depthFt / 2
+
+  // Grass blade rows for texture effect
+  const bladeData = useMemo(() => {
+    const blades: { x: number; z: number; h: number; shade: number }[] = []
+    const spacing = turfType === 'putting_green' ? 0.4 : 0.25
+    const seed = (obj.id.charCodeAt(0) * 137 + obj.id.charCodeAt(1) * 73) | 0
+    let s = seed
+    const rng = () => { s = (s * 16807 + 0) % 2147483647; return s / 2147483647 }
+
+    for (let x = spacing / 2; x < widthFt; x += spacing) {
+      for (let z = spacing / 2; z < depthFt; z += spacing) {
+        const jx = (rng() - 0.5) * spacing * 0.6
+        const jz = (rng() - 0.5) * spacing * 0.6
+        const hVar = turfType === 'putting_green' ? 0.05 : 0.3
+        blades.push({
+          x: -widthFt / 2 + x + jx,
+          z: -depthFt / 2 + z + jz,
+          h: grassHeight * (0.7 + rng() * hVar),
+          shade: 0.85 + rng() * 0.3,
+        })
+      }
+    }
+    return blades
+  }, [obj.id, widthFt, depthFt, grassHeight, turfType])
+
+  // Colors by type
+  const baseColor = color.clone()
+  if (turfType === 'artificial') {
+    baseColor.multiplyScalar(1.15) // slightly brighter, more uniform
+  } else if (turfType === 'putting_green') {
+    baseColor.set('#2d7a1a') // darker, tighter
+  }
+
+  return (
+    <group rotation={[0, obj.rotation[1], 0]} position={[cx, 0, cz]}>
+      {/* Base soil/ground layer */}
+      <mesh position={[0, 0.005, 0]} receiveShadow>
+        <boxGeometry args={[widthFt, 0.01, depthFt]} />
+        <meshStandardMaterial color={baseColor} roughness={0.95} />
+      </mesh>
+
+      {/* Grass blades as thin boxes */}
+      {bladeData.map((b, i) => {
+        const bladeColor = baseColor.clone().multiplyScalar(b.shade)
+        return (
+          <mesh key={i} position={[b.x, b.h / 2 + 0.01, b.z]}>
+            <boxGeometry args={[0.06, b.h, 0.02]} />
+            <meshStandardMaterial color={bladeColor} roughness={0.9} />
+          </mesh>
+        )
+      })}
+
+      {turfType === 'artificial' && (
+        // Subtle sheen layer on top for artificial look
+        <mesh position={[0, grassHeight + 0.01, 0]} receiveShadow>
+          <boxGeometry args={[widthFt, 0.005, depthFt]} />
+          <meshStandardMaterial color={baseColor} roughness={0.4} metalness={0.05} />
+        </mesh>
+      )}
     </group>
   )
 }

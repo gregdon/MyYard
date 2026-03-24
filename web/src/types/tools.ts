@@ -14,6 +14,6 @@ export type ViewMode = '2d' | '3d'
 
 export type FillMode = 'fill' | 'outline'
 
-export type GridIncrement = '1ft' | '6in'
+export type GridIncrement = '1ft' | '6in' | '3in'
 
 export type RightDrawer = 'help' | 'ai' | null

@@ -31,10 +31,18 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      // Save
+      // Save As (Ctrl+Shift+S)
+      if (ctrl && e.shiftKey && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault()
+        window.dispatchEvent(new Event('save-as'))
+        return
+      }
+
+      // Save (Ctrl+S)
       if (ctrl && e.key === 's') {
         e.preventDefault()
-        saveDesign()
+        const saved = saveDesign()
+        if (!saved) window.dispatchEvent(new Event('save-as'))
         return
       }
 
@@ -98,35 +106,38 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      // Delete selected object
+      // Delete selected object(s)
       if ((e.key === 'Delete' || e.key === 'Backspace') && !ctrl) {
-        const selectedId = useUIStore.getState().selectedObjectId
-        if (selectedId) {
+        const ui = useUIStore.getState()
+        const ids = ui.selectedObjectIds
+        if (ids.length > 0) {
           e.preventDefault()
           useHistoryStore.getState().pushSnapshot()
-          useDesignStore.getState().removePlacedObject(selectedId)
-          useUIStore.getState().setSelectedObjectId(null)
+          const ds = useDesignStore.getState()
+          for (const id of ids) ds.removePlacedObject(id)
+          ui.setSelectedObjectIds([])
           return
         }
       }
 
-      // Arrow keys to move selected object
+      // Arrow keys to move selected object(s)
       if (!ctrl && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        const selectedId = useUIStore.getState().selectedObjectId
-        if (selectedId) {
+        const ids = useUIStore.getState().selectedObjectIds
+        if (ids.length > 0) {
           e.preventDefault()
           const ds = useDesignStore.getState()
-          const obj = ds.placedObjects.find(o => o.id === selectedId)
-          if (obj) {
-            const step = cellSizeFt(ds.gridSettings.increment)
+          const step = cellSizeFt(ds.gridSettings.increment)
+          useHistoryStore.getState().pushSnapshot()
+          for (const id of ids) {
+            const obj = ds.placedObjects.find(o => o.id === id)
+            if (!obj) continue
             const [x, y, z] = obj.position
             let nx = x, nz = z
             if (e.key === 'ArrowLeft') nx -= step
             if (e.key === 'ArrowRight') nx += step
             if (e.key === 'ArrowUp') nz -= step
             if (e.key === 'ArrowDown') nz += step
-            useHistoryStore.getState().pushSnapshot()
-            ds.updatePlacedObject(selectedId, { position: [nx, y, nz] })
+            ds.updatePlacedObject(id, { position: [nx, y, nz] })
           }
           return
         }

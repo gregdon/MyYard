@@ -37,8 +37,8 @@ export function validateDesignFile(data: unknown): ValidationResult {
     if (typeof gs.heightFt !== 'number' || gs.heightFt < 1 || gs.heightFt > MAX_GRID_FT) {
       errors.push(`gridSettings.heightFt must be 1-${MAX_GRID_FT}`)
     }
-    if (gs.increment !== '1ft' && gs.increment !== '6in') {
-      errors.push('gridSettings.increment must be "1ft" or "6in"')
+    if (gs.increment !== '1ft' && gs.increment !== '6in' && gs.increment !== '3in') {
+      errors.push('gridSettings.increment must be "1ft", "6in", or "3in"')
     }
   }
 

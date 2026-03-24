@@ -46,11 +46,14 @@ export function GridSettings() {
         onValueChange={(val) => { if (val) setGridSettings({ increment: val as GridIncrement }) }}
         className="flex"
       >
-        <ToggleGroupItem value="1ft" className="h-7 px-2 text-xs">
-          1'
+        <ToggleGroupItem value="3in" className="h-7 px-2 text-xs">
+          3"
         </ToggleGroupItem>
         <ToggleGroupItem value="6in" className="h-7 px-2 text-xs">
           6"
+        </ToggleGroupItem>
+        <ToggleGroupItem value="1ft" className="h-7 px-2 text-xs">
+          1'
         </ToggleGroupItem>
       </ToggleGroup>
     </div>

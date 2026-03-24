@@ -15,6 +15,7 @@ import {
   drawShapePreview,
   drawSmoothEllipseOverlay,
   drawPlacedObjects,
+  drawMarqueeRect,
   drawScrollbars,
   getScrollbarGeometry,
 } from './gridRenderer'
@@ -78,7 +79,7 @@ export function Canvas2DView() {
     drawRulerMarkers(ctx, state.rows, state.cols, mgr.viewport, w, h, state.gridSettings.increment)
 
     // Draw placed objects
-    drawPlacedObjects(ctx, state.placedObjects, mgr.viewport, state.gridSettings.increment, uiState.selectedObjectId)
+    drawPlacedObjects(ctx, state.placedObjects, mgr.viewport, state.gridSettings.increment, uiState.selectedObjectId, uiState.selectedObjectIds)
 
     // Draw shape preview
     if (mgr.previewCells.length > 0) {
@@ -101,6 +102,11 @@ export function Canvas2DView() {
 
     // Scrollbar indicators
     drawScrollbars(ctx, state.rows, state.cols, mgr.viewport, w, h)
+
+    // Marquee selection rectangle
+    if (mgr.marqueeRect) {
+      drawMarqueeRect(ctx, mgr.marqueeRect)
+    }
 
     ctx.restore()
 
@@ -161,6 +167,22 @@ export function Canvas2DView() {
       (s) => s.selectedObjectId,
       () => { mgrRef.current.dirty = true }
     )
+    const unsub4b = useUIStore.subscribe(
+      (s) => s.selectedObjectIds,
+      () => { mgrRef.current.dirty = true }
+    )
+    // Re-center viewport when grid dimensions change (e.g. switching increment)
+    const unsub5 = useDesignStore.subscribe(
+      (s) => `${s.rows}:${s.cols}`,
+      () => {
+        const container = containerRef.current
+        if (!container) return
+        const rect = container.getBoundingClientRect()
+        if (rect.width === 0 || rect.height === 0) return
+        const { rows, cols } = useDesignStore.getState()
+        centerViewport(mgrRef.current, rows, cols, rect.width, rect.height)
+      }
+    )
 
     return () => {
       observer.disconnect()
@@ -169,6 +191,8 @@ export function Canvas2DView() {
       unsub2()
       unsub3()
       unsub4()
+      unsub4b()
+      unsub5()
     }
   }, [render, resizeCanvas])
 
@@ -190,6 +214,9 @@ export function Canvas2DView() {
       updatePlacedObject: ds.updatePlacedObject,
       setSelectedObjectId: ui.setSelectedObjectId,
       selectedObjectId: ui.selectedObjectId,
+      selectedObjectIds: ui.selectedObjectIds,
+      setSelectedObjectIds: ui.setSelectedObjectIds,
+      toggleObjectSelection: ui.toggleObjectSelection,
     }
   }
 
@@ -258,13 +285,17 @@ export function Canvas2DView() {
     }
 
     handleMouseDown(
-      mgrRef.current, e.nativeEvent,
+      mgrRef.current,
+      { button: e.nativeEvent.button, offsetX: e.nativeEvent.offsetX, offsetY: e.nativeEvent.offsetY, shiftKey: e.shiftKey },
       refs.tool, refs.material, refs.fillMode,
       refs.rows, refs.cols,
       refs.setCellMaterial, refs.pushSnapshot,
       refs.placedObjects, refs.increment,
       refs.setSelectedObjectId,
       refs.selectedObjectId,
+      refs.selectedObjectIds,
+      refs.setSelectedObjectIds,
+      refs.toggleObjectSelection,
     )
   }, [])
 
@@ -317,6 +348,8 @@ export function Canvas2DView() {
       mgrRef.current,
       refs.tool, refs.material, refs.fillMode,
       refs.fillCells,
+      refs.placedObjects, refs.increment,
+      refs.setSelectedObjectIds,
     )
   }, [])
 

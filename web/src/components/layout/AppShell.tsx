@@ -12,7 +12,7 @@ export function AppShell() {
   return (
     <div className="flex h-screen flex-col">
       <AppHeader />
-      <div className="relative flex flex-1 overflow-hidden">
+      <div className="relative flex flex-1 flex-col overflow-hidden">
         <Outlet />
         <RightDrawer>
           {activeRightDrawer === 'help' && <HelpDrawer />}

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(node -e \"const p = require\\(''react-resizable-panels''\\); console.log\\(typeof p.PanelGroup\\)\")"
+    ]
+  }
+}

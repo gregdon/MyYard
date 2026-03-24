@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useDesignStore } from '@/store/designStore'
 import { useHistoryStore } from '@/store/historyStore'
+import { useUIStore } from '@/store/uiStore'
 import { DEFAULT_GRID_SETTINGS } from '@/constants/defaults'
 import {
   Dialog,
@@ -31,6 +32,7 @@ export function NewDesignDialog({ open, onOpenChange }: Props) {
   const handleCreate = () => {
     useHistoryStore.getState().clear()
     newDesign({ widthFt, heightFt, increment }, name)
+    useUIStore.getState().setHasBeenSaved(false)
     onOpenChange(false)
   }
 
