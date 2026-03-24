@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useUIStore } from '@/store/uiStore'
 import { useDesignStore } from '@/store/designStore'
 import { useDesignIO } from '@/hooks/useDesignIO'
@@ -9,6 +9,7 @@ import { Canvas2DView } from '@/components/canvas2d/Canvas2DView'
 import { Scene3DView } from '@/components/scene3d/Scene3DView'
 import { NewDesignDialog } from '@/components/dialogs/NewDesignDialog'
 import { LoadDialog } from '@/components/dialogs/LoadDialog'
+import { SaveDialog } from '@/components/dialogs/SaveDialog'
 import { ObjectPropertiesPanel } from '@/components/sidebar/ObjectPropertiesPanel'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
@@ -20,10 +21,31 @@ export function EditorPage() {
   const sideNavCollapsed = useUIStore((s) => s.sideNavCollapsed)
   const setSideNavCollapsed = useUIStore((s) => s.setSideNavCollapsed)
 
-  const { saveDesign } = useDesignIO()
+  const { saveDesign, saveAsDesign } = useDesignIO()
   useKeyboardShortcuts()
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [showLoadDialog, setShowLoadDialog] = useState(false)
+  const [showSaveDialog, setShowSaveDialog] = useState(false)
+
+  const handleSave = useCallback(() => {
+    const saved = saveDesign()
+    if (!saved) setShowSaveDialog(true)
+  }, [saveDesign])
+
+  const handleSaveAs = useCallback(() => {
+    setShowSaveDialog(true)
+  }, [])
+
+  const handleSaveDialogConfirm = useCallback((fileName: string) => {
+    saveAsDesign(fileName)
+  }, [saveAsDesign])
+
+  // Listen for save-as event from keyboard shortcuts
+  useEffect(() => {
+    const handler = () => setShowSaveDialog(true)
+    window.addEventListener('save-as', handler)
+    return () => window.removeEventListener('save-as', handler)
+  }, [])
 
   // Auto-collapse sidebar on small screens
   useEffect(() => {
@@ -40,7 +62,8 @@ export function EditorPage() {
     <div className="flex flex-1 flex-col overflow-hidden">
       <EditorToolbar
         onNew={() => setShowNewDialog(true)}
-        onSave={saveDesign}
+        onSave={handleSave}
+        onSaveAs={handleSaveAs}
         onLoad={() => setShowLoadDialog(true)}
       />
 
@@ -88,6 +111,7 @@ export function EditorPage() {
 
       <NewDesignDialog open={showNewDialog} onOpenChange={setShowNewDialog} />
       <LoadDialog open={showLoadDialog} onOpenChange={setShowLoadDialog} />
+      <SaveDialog open={showSaveDialog} onOpenChange={setShowSaveDialog} onSave={handleSaveDialogConfirm} />
     </div>
   )
 }

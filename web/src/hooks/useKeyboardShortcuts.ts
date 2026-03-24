@@ -31,10 +31,18 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      // Save
+      // Save As (Ctrl+Shift+S)
+      if (ctrl && e.shiftKey && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault()
+        window.dispatchEvent(new Event('save-as'))
+        return
+      }
+
+      // Save (Ctrl+S)
       if (ctrl && e.key === 's') {
         e.preventDefault()
-        saveDesign()
+        const saved = saveDesign()
+        if (!saved) window.dispatchEvent(new Event('save-as'))
         return
       }
 

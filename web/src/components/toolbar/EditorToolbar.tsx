@@ -1,7 +1,7 @@
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { Crosshair, FilePlus, FolderOpen, Menu, Save } from 'lucide-react'
+import { Crosshair, FilePlus, FolderOpen, Menu, Save, SaveAll } from 'lucide-react'
 import { useUIStore } from '@/store/uiStore'
 import { UndoRedoControls } from './UndoRedoControls'
 import { GridSettings } from './GridSettings'
@@ -11,10 +11,11 @@ import { ZoomControls } from './ZoomControls'
 interface EditorToolbarProps {
   onNew: () => void
   onSave: () => void
+  onSaveAs: () => void
   onLoad: () => void
 }
 
-export function EditorToolbar({ onNew, onSave, onLoad }: EditorToolbarProps) {
+export function EditorToolbar({ onNew, onSave, onSaveAs, onLoad }: EditorToolbarProps) {
   const toggleSideNav = useUIStore((s) => s.toggleSideNav)
 
   return (
@@ -54,6 +55,14 @@ export function EditorToolbar({ onNew, onSave, onLoad }: EditorToolbarProps) {
           </Button>
         </TooltipTrigger>
         <TooltipContent>Save (Ctrl+S)</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onSaveAs}>
+            <SaveAll className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Save As (Ctrl+Shift+S)</TooltipContent>
       </Tooltip>
       <Separator orientation="vertical" className="h-5" />
 

@@ -302,6 +302,7 @@ function renderPrefab(
         }
 
         if (obj.type === 'tv_wall') {
+          const wallMaterial = (obj.customProps?.material as string) ?? 'stone'
           const wallColor = (obj.customProps?.color as string) ?? '#6b6b6b'
           const hasTV = (obj.customProps?.hasTV as boolean) ?? true
           const tvSizeIn = (obj.customProps?.tvSize as number) ?? 55
@@ -313,17 +314,42 @@ function renderPrefab(
           const tvD = 0.08
           const tvY = heightFt * 0.55 + tvVertIn / 12
           const tvX = tvHorizIn / 12
+          const isTG = wallMaterial === 'wood_tg'
           return (
             <group
-              key={`${obj.id}-${wallColor}`}
+              key={`${obj.id}-${wallColor}-${wallMaterial}`}
               position={[obj.position[0] + widthFt / 2, 0, obj.position[2] + depthFt / 2]}
               rotation={[0, obj.rotation[1], 0]}
             >
               {/* Wall body */}
-              <mesh position={[0, heightFt / 2, 0]} castShadow>
-                <boxGeometry args={[widthFt, heightFt, depthFt]} />
-                <meshStandardMaterial color={wallColor} />
-              </mesh>
+              {!isTG && (
+                <mesh position={[0, heightFt / 2, 0]} castShadow>
+                  <boxGeometry args={[widthFt, heightFt, depthFt]} />
+                  <meshStandardMaterial color={wallColor} />
+                </mesh>
+              )}
+              {/* Tongue & groove planks */}
+              {isTG && (() => {
+                const plankW = 0.5 // 6-inch planks
+                const plankGap = 0.01
+                const plankCount = Math.ceil(widthFt / plankW)
+                const planks: React.JSX.Element[] = []
+                for (let i = 0; i < plankCount; i++) {
+                  const px = -widthFt / 2 + plankW / 2 + i * plankW
+                  const pw = Math.min(plankW - plankGap, widthFt / 2 - (px - plankW / 2))
+                  if (pw <= 0) break
+                  const shade = i % 2 === 0
+                    ? wallColor
+                    : new THREE.Color(wallColor).multiplyScalar(0.9).getStyle()
+                  planks.push(
+                    <mesh key={`tg-${i}`} position={[px, heightFt / 2, 0]} castShadow>
+                      <boxGeometry args={[pw, heightFt, depthFt]} />
+                      <meshStandardMaterial color={shade} roughness={0.85} />
+                    </mesh>
+                  )
+                }
+                return planks
+              })()}
               {/* TV */}
               {hasTV && (
                 <group position={[tvX, tvY, -depthFt / 2 - tvD / 2]}>
