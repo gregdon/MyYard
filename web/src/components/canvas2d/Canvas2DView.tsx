@@ -171,6 +171,14 @@ export function Canvas2DView() {
       (s) => s.selectedObjectIds,
       () => { mgrRef.current.dirty = true }
     )
+    // Attach wheel listener imperatively with { passive: false } so preventDefault works
+    const canvasEl = canvasRef.current
+    const wheelHandler = (e: WheelEvent) => {
+      e.preventDefault()
+      handleWheel(mgrRef.current, e)
+    }
+    canvasEl?.addEventListener('wheel', wheelHandler, { passive: false })
+
     // Re-center viewport when grid dimensions change (e.g. switching increment)
     const unsub5 = useDesignStore.subscribe(
       (s) => `${s.rows}:${s.cols}`,
@@ -193,6 +201,7 @@ export function Canvas2DView() {
       unsub4()
       unsub4b()
       unsub5()
+      canvasEl?.removeEventListener('wheel', wheelHandler)
     }
   }, [render, resizeCanvas])
 
@@ -219,11 +228,6 @@ export function Canvas2DView() {
       toggleObjectSelection: ui.toggleObjectSelection,
     }
   }
-
-  const onWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault()
-    handleWheel(mgrRef.current, e.nativeEvent)
-  }, [])
 
   /** Get canvas logical dimensions */
   const getCanvasSize = () => {
@@ -463,7 +467,6 @@ export function Canvas2DView() {
     >
       <canvas
         ref={canvasRef}
-        onWheel={onWheel}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
