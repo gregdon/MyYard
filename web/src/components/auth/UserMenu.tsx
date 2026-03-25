@@ -7,7 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Settings, LayoutDashboard, LogOut } from 'lucide-react'
 
 export function UserMenu() {
@@ -29,6 +29,7 @@ export function UserMenu() {
       <DropdownMenuTrigger asChild>
         <button className="flex items-center gap-2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Avatar className="h-8 w-8 cursor-pointer">
+            {user.photoURL && <AvatarImage src={user.photoURL} alt={user.name} />}
             <AvatarFallback className="text-xs">{initials}</AvatarFallback>
           </Avatar>
         </button>
@@ -48,7 +49,7 @@ export function UserMenu() {
           Settings
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => { logout(); navigate('/login') }}>
+        <DropdownMenuItem onClick={async () => { await logout(); navigate('/login') }}>
           <LogOut className="mr-2 h-4 w-4" />
           Logout
         </DropdownMenuItem>

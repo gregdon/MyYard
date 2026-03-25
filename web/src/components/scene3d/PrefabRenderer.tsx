@@ -399,6 +399,30 @@ function renderPrefab(
           return <LKitchenMesh key={obj.id} obj={obj} />
         }
 
+        if (obj.type === 'grill_standalone') {
+          const grillColor = obj.customProps?.color
+            ? new THREE.Color(obj.customProps.color as string)
+            : color
+          const lidOpen = (obj.customProps?.lidOpen as boolean) ?? false
+          return <GrillStandaloneMesh key={obj.id} obj={obj} color={grillColor} lidOpen={lidOpen} />
+        }
+
+        if (obj.type === 'sink') {
+          const sinkColor = obj.customProps?.color
+            ? new THREE.Color(obj.customProps.color as string)
+            : color
+          const cabinetColor = new THREE.Color((obj.customProps?.cabinetColor as string) ?? '#8b7355')
+          return <SinkMesh key={obj.id} obj={obj} color={sinkColor} cabinetColor={cabinetColor} />
+        }
+
+        if (obj.type === 'fridge') {
+          const fridgeColor = obj.customProps?.color
+            ? new THREE.Color(obj.customProps.color as string)
+            : color
+          const doorStyle = (obj.customProps?.style as string) ?? 'single_door'
+          return <FridgeMesh key={obj.id} obj={obj} color={fridgeColor} doorStyle={doorStyle} />
+        }
+
         if (obj.type.startsWith('grill_')) {
           return <GrillMesh key={obj.id} obj={obj} color={color} />
         }
@@ -2915,6 +2939,177 @@ function TurfMesh({ obj, color }: { obj: PlacedObject3D; color: THREE.Color }) {
           <boxGeometry args={[widthFt, 0.005, depthFt]} />
           <meshStandardMaterial color={baseColor} roughness={0.4} metalness={0.05} />
         </mesh>
+      )}
+    </group>
+  )
+}
+
+function GrillStandaloneMesh({ obj, color, lidOpen }: { obj: PlacedObject3D; color: THREE.Color; lidOpen: boolean }) {
+  const { widthFt, depthFt, heightFt } = obj.size
+  const cx = obj.position[0] + widthFt / 2
+  const cz = obj.position[2] + depthFt / 2
+
+  const legH = heightFt * 0.45
+  const fireboxH = heightFt * 0.3
+  const fireboxY = legH + fireboxH / 2
+  const lidH = heightFt * 0.2
+  const wheelR = 0.15
+  const lidColor = color.clone().multiplyScalar(0.75)
+
+  return (
+    <group position={[cx, 0, cz]} rotation={[0, obj.rotation[1], 0]}>
+      {/* 4 legs */}
+      {[
+        [-widthFt * 0.35, -depthFt * 0.3],
+        [-widthFt * 0.35, depthFt * 0.3],
+        [widthFt * 0.35, -depthFt * 0.3],
+        [widthFt * 0.35, depthFt * 0.3],
+      ].map(([lx, lz], i) => (
+        <mesh key={`leg-${i}`} position={[lx, legH / 2, lz]} castShadow>
+          <boxGeometry args={[0.1, legH, 0.1]} />
+          <meshStandardMaterial color="#555" />
+        </mesh>
+      ))}
+      {/* Front 2 wheels */}
+      {[-depthFt * 0.3, depthFt * 0.3].map((lz, i) => (
+        <mesh key={`wheel-${i}`} position={[widthFt * 0.35, wheelR, lz]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[wheelR, wheelR, 0.06, 12]} />
+          <meshStandardMaterial color="#222" />
+        </mesh>
+      ))}
+      {/* Main firebox */}
+      <mesh position={[0, fireboxY, 0]} castShadow>
+        <boxGeometry args={[widthFt * 0.75, fireboxH, depthFt * 0.8]} />
+        <meshStandardMaterial color={color} metalness={0.1} roughness={0.6} />
+      </mesh>
+      {/* Lid */}
+      {lidOpen ? (
+        // Lid angled open behind the firebox
+        <mesh
+          position={[0, fireboxY + fireboxH / 2 + lidH * 0.3, -depthFt * 0.35]}
+          rotation={[-Math.PI * 0.35, 0, 0]}
+          castShadow
+        >
+          <boxGeometry args={[widthFt * 0.75, 0.08, depthFt * 0.6]} />
+          <meshStandardMaterial color={lidColor} metalness={0.1} roughness={0.5} />
+        </mesh>
+      ) : (
+        // Lid closed — curved top (half cylinder)
+        <mesh
+          position={[0, fireboxY + fireboxH / 2 + lidH / 2, 0]}
+          rotation={[0, 0, Math.PI / 2]}
+          castShadow
+        >
+          <cylinderGeometry args={[depthFt * 0.35, depthFt * 0.35, widthFt * 0.75, 16, 1, false, 0, Math.PI]} />
+          <meshStandardMaterial color={lidColor} metalness={0.1} roughness={0.5} />
+        </mesh>
+      )}
+      {/* Side shelf */}
+      <mesh position={[-widthFt * 0.5, fireboxY, 0]} castShadow>
+        <boxGeometry args={[widthFt * 0.2, 0.06, depthFt * 0.6]} />
+        <meshStandardMaterial color="#888" metalness={0.15} roughness={0.4} />
+      </mesh>
+      {/* Shelf support */}
+      <mesh position={[-widthFt * 0.55, fireboxY - fireboxH * 0.25, 0]} castShadow>
+        <boxGeometry args={[0.06, fireboxH * 0.5, 0.06]} />
+        <meshStandardMaterial color="#555" />
+      </mesh>
+    </group>
+  )
+}
+
+function SinkMesh({ obj, color, cabinetColor }: { obj: PlacedObject3D; color: THREE.Color; cabinetColor: THREE.Color }) {
+  const { widthFt, depthFt, heightFt } = obj.size
+  const cx = obj.position[0] + widthFt / 2
+  const cz = obj.position[2] + depthFt / 2
+
+  const cabinetH = heightFt * 0.85
+  const counterH = 0.12
+  const counterY = cabinetH + counterH / 2
+  const basinDepth = 0.35
+  const basinW = widthFt * 0.55
+  const basinD = depthFt * 0.5
+  const basinColor = new THREE.Color('#2a2a2a')
+
+  return (
+    <group position={[cx, 0, cz]} rotation={[0, obj.rotation[1], 0]}>
+      {/* Cabinet base */}
+      <mesh position={[0, cabinetH / 2, 0]} castShadow>
+        <boxGeometry args={[widthFt * 0.95, cabinetH, depthFt * 0.95]} />
+        <meshStandardMaterial color={cabinetColor} roughness={0.7} />
+      </mesh>
+      {/* Countertop slab — slightly wider than cabinet */}
+      <mesh position={[0, counterY, 0]} castShadow>
+        <boxGeometry args={[widthFt + 0.08, counterH, depthFt + 0.08]} />
+        <meshStandardMaterial color={color} metalness={0.1} roughness={0.4} />
+      </mesh>
+      {/* Basin cutout (recessed dark box) */}
+      <mesh position={[0, counterY + counterH / 2 - basinDepth / 2, depthFt * 0.05]}>
+        <boxGeometry args={[basinW, basinDepth, basinD]} />
+        <meshStandardMaterial color={basinColor} />
+      </mesh>
+      {/* Faucet base */}
+      <mesh position={[0, counterY + counterH / 2 + 0.25, -depthFt * 0.3]} castShadow>
+        <cylinderGeometry args={[0.04, 0.04, 0.5, 8]} />
+        <meshStandardMaterial color="#d0d0d0" metalness={0.4} roughness={0.2} />
+      </mesh>
+      {/* Faucet spout — horizontal */}
+      <mesh position={[0, counterY + counterH / 2 + 0.5, -depthFt * 0.15]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <cylinderGeometry args={[0.03, 0.03, 0.3, 8]} />
+        <meshStandardMaterial color="#d0d0d0" metalness={0.4} roughness={0.2} />
+      </mesh>
+    </group>
+  )
+}
+
+function FridgeMesh({ obj, color, doorStyle }: { obj: PlacedObject3D; color: THREE.Color; doorStyle: string }) {
+  const { widthFt, depthFt, heightFt } = obj.size
+  const cx = obj.position[0] + widthFt / 2
+  const cz = obj.position[2] + depthFt / 2
+
+  const inset = 0.05
+  const bodyW = widthFt - inset * 2
+  const bodyD = depthFt - inset * 2
+  const bodyH = heightFt - inset
+  const handleR = 0.025
+  const handleH = heightFt * 0.3
+  const doorGap = 0.02
+  const isDouble = doorStyle === 'double_door'
+
+  return (
+    <group position={[cx, 0, cz]} rotation={[0, obj.rotation[1], 0]}>
+      {/* Main body */}
+      <mesh position={[0, bodyH / 2, 0]} castShadow>
+        <boxGeometry args={[bodyW, bodyH, bodyD]} />
+        <meshStandardMaterial color={color} metalness={0.2} roughness={0.4} />
+      </mesh>
+
+      {isDouble ? (
+        <>
+          {/* Gap line between doors */}
+          <mesh position={[0, bodyH / 2, bodyD / 2 + 0.001]}>
+            <boxGeometry args={[doorGap, bodyH * 0.9, 0.005]} />
+            <meshStandardMaterial color="#222" />
+          </mesh>
+          {/* Left door handle */}
+          <mesh position={[-bodyW * 0.08, bodyH / 2, bodyD / 2 + 0.04]} castShadow>
+            <cylinderGeometry args={[handleR, handleR, handleH, 8]} />
+            <meshStandardMaterial color="#e0e0e0" metalness={0.4} roughness={0.2} />
+          </mesh>
+          {/* Right door handle */}
+          <mesh position={[bodyW * 0.08, bodyH / 2, bodyD / 2 + 0.04]} castShadow>
+            <cylinderGeometry args={[handleR, handleR, handleH, 8]} />
+            <meshStandardMaterial color="#e0e0e0" metalness={0.4} roughness={0.2} />
+          </mesh>
+        </>
+      ) : (
+        <>
+          {/* Single door handle */}
+          <mesh position={[bodyW * 0.35, bodyH / 2, bodyD / 2 + 0.04]} castShadow>
+            <cylinderGeometry args={[handleR, handleR, handleH, 8]} />
+            <meshStandardMaterial color="#e0e0e0" metalness={0.4} roughness={0.2} />
+          </mesh>
+        </>
       )}
     </group>
   )

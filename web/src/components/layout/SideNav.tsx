@@ -6,9 +6,8 @@ import {
 } from '@/components/ui/accordion'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ToolSelector } from '@/components/sidebar/ToolSelector'
-import { MaterialPalette } from '@/components/sidebar/MaterialPalette'
 import { WidgetPalette } from '@/components/sidebar/WidgetPalette'
-import { Paintbrush, Palette, Box } from 'lucide-react'
+import { Paintbrush, Box } from 'lucide-react'
 import { useUIStore } from '@/store/uiStore'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
@@ -34,17 +33,6 @@ export function SideNav() {
           <Popover>
             <PopoverTrigger asChild>
               <button className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent cursor-pointer">
-                <Palette className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent side="right" align="start" className="w-56 p-2">
-              <p className="mb-2 text-sm font-medium">Materials</p>
-              <MaterialPalette />
-            </PopoverContent>
-          </Popover>
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent cursor-pointer">
                 <Box className="h-4 w-4 text-muted-foreground" />
               </button>
             </PopoverTrigger>
@@ -64,7 +52,7 @@ export function SideNav() {
             <span className="text-sm font-semibold">Tools</span>
           </div>
           <ScrollArea className="min-h-0 flex-1">
-            <Accordion type="multiple" defaultValue={['tools', 'materials']} className="px-3 py-2">
+            <Accordion type="multiple" defaultValue={['tools', 'widgets']} className="px-3 py-2">
               <AccordionItem value="tools">
                 <AccordionTrigger className="py-2 text-sm">
                   <span className="flex items-center gap-2">
@@ -74,18 +62,6 @@ export function SideNav() {
                 </AccordionTrigger>
                 <AccordionContent>
                   <ToolSelector />
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="materials">
-                <AccordionTrigger className="py-2 text-sm">
-                  <span className="flex items-center gap-2">
-                    <Palette className="h-4 w-4" />
-                    Materials
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <MaterialPalette />
                 </AccordionContent>
               </AccordionItem>
 

@@ -1063,6 +1063,105 @@ export const PREFAB_CATALOG: PrefabDefinition[] = [
       },
     ],
   },
+  {
+    type: 'grill_standalone',
+    label: 'Grill (Standalone)',
+    category: 'cooking',
+    defaultSize: { widthFt: 4, depthFt: 2, heightFt: 3.5 },
+    minSize: { widthFt: 4, depthFt: 2, heightFt: 3.5 },
+    maxSize: { widthFt: 4, depthFt: 2, heightFt: 3.5 },
+    resizable: false,
+    rotatable: true,
+    color: '#333333',
+    editableProps: [
+      {
+        key: 'style',
+        label: 'Style',
+        type: 'select',
+        options: [
+          { value: 'gas', label: 'Gas' },
+          { value: 'charcoal', label: 'Charcoal' },
+        ],
+        defaultValue: 'gas',
+      },
+      {
+        key: 'color',
+        label: 'Color',
+        type: 'color',
+        defaultValue: '#333333',
+      },
+      {
+        key: 'lidOpen',
+        label: 'Lid Open',
+        type: 'boolean',
+        defaultValue: false,
+      },
+    ],
+  },
+  {
+    type: 'sink',
+    label: 'Outdoor Sink',
+    category: 'cooking',
+    defaultSize: { widthFt: 2, depthFt: 2, heightFt: 3 },
+    minSize: { widthFt: 2, depthFt: 2, heightFt: 3 },
+    maxSize: { widthFt: 2, depthFt: 2, heightFt: 3 },
+    resizable: false,
+    rotatable: true,
+    color: '#c0c0c0',
+    editableProps: [
+      {
+        key: 'material',
+        label: 'Material',
+        type: 'select',
+        options: [
+          { value: 'stainless', label: 'Stainless Steel' },
+          { value: 'granite', label: 'Granite' },
+        ],
+        defaultValue: 'stainless',
+      },
+      {
+        key: 'color',
+        label: 'Counter Color',
+        type: 'color',
+        defaultValue: '#c0c0c0',
+      },
+      {
+        key: 'cabinetColor',
+        label: 'Cabinet Color',
+        type: 'color',
+        defaultValue: '#8b7355',
+      },
+    ],
+  },
+  {
+    type: 'fridge',
+    label: 'Outdoor Fridge',
+    category: 'cooking',
+    defaultSize: { widthFt: 2, depthFt: 2, heightFt: 3 },
+    minSize: { widthFt: 2, depthFt: 2, heightFt: 3 },
+    maxSize: { widthFt: 2, depthFt: 2, heightFt: 3 },
+    resizable: false,
+    rotatable: true,
+    color: '#c0c0c0',
+    editableProps: [
+      {
+        key: 'style',
+        label: 'Style',
+        type: 'select',
+        options: [
+          { value: 'single_door', label: 'Single Door' },
+          { value: 'double_door', label: 'Double Door' },
+        ],
+        defaultValue: 'single_door',
+      },
+      {
+        key: 'color',
+        label: 'Color',
+        type: 'color',
+        defaultValue: '#c0c0c0',
+      },
+    ],
+  },
 
   // ── Seating & Furniture ──
   {
