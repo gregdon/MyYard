@@ -1,7 +1,7 @@
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { Crosshair, FilePlus, FolderOpen, Menu, Save, SaveAll } from 'lucide-react'
+import { Crosshair, FilePlus, FolderOpen, Menu, Save, SaveAll, BookmarkPlus } from 'lucide-react'
 import { useUIStore } from '@/store/uiStore'
 import { UndoRedoControls } from './UndoRedoControls'
 import { GridSettings } from './GridSettings'
@@ -13,10 +13,14 @@ interface EditorToolbarProps {
   onSave: () => void
   onSaveAs: () => void
   onLoad: () => void
+  onSaveTemplate?: () => void
 }
 
-export function EditorToolbar({ onNew, onSave, onSaveAs, onLoad }: EditorToolbarProps) {
+export function EditorToolbar({ onNew, onSave, onSaveAs, onLoad, onSaveTemplate }: EditorToolbarProps) {
   const toggleSideNav = useUIStore((s) => s.toggleSideNav)
+  const selectedId = useUIStore((s) => s.selectedObjectId)
+  const selectedIds = useUIStore((s) => s.selectedObjectIds)
+  const hasSelection = !!selectedId || selectedIds.length > 0
 
   return (
     <div className="flex h-10 items-center gap-2 border-b bg-card px-3">
@@ -63,6 +67,18 @@ export function EditorToolbar({ onNew, onSave, onSaveAs, onLoad }: EditorToolbar
           </Button>
         </TooltipTrigger>
         <TooltipContent>Save As (Ctrl+Shift+S)</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost" size="icon" className="h-7 w-7"
+            onClick={onSaveTemplate}
+            disabled={!hasSelection}
+          >
+            <BookmarkPlus className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Save Selection as Template</TooltipContent>
       </Tooltip>
       <Separator orientation="vertical" className="h-5" />
 

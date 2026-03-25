@@ -5,6 +5,7 @@ import { useHistoryStore } from '@/store/historyStore'
 import { MATERIAL_DEFS } from '@/constants/materials'
 import { Material } from '@/types/materials'
 import { PREFAB_CATALOG } from '@/constants/prefabs'
+import { useTemplateStore } from '@/store/templateStore'
 import { cellSizeFt } from '@/utils/gridHelpers'
 import { ToolMode } from '@/types/tools'
 import {
@@ -363,13 +364,64 @@ export function Canvas2DView() {
   }, [])
 
   const onDragOver = useCallback((e: React.DragEvent) => {
-    if (e.dataTransfer.types.includes('application/prefab-type')) {
+    if (e.dataTransfer.types.includes('application/prefab-type')
+      || e.dataTransfer.types.includes('application/preset-id')
+      || e.dataTransfer.types.includes('application/assembly-id')) {
       e.preventDefault()
       e.dataTransfer.dropEffect = 'copy'
     }
   }, [])
 
   const onDrop = useCallback((e: React.DragEvent) => {
+    const mgr = mgrRef.current
+    const cellSize = 20 * mgr.viewport.zoom
+    const cellFt = cellSizeFt(useDesignStore.getState().gridSettings.increment)
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const canvasX = e.clientX - rect.left
+    const canvasY = e.clientY - rect.top
+    const worldCol = (canvasX + mgr.viewport.offsetX) / cellSize
+    const worldRow = (canvasY + mgr.viewport.offsetY) / cellSize
+    const snapCol = Math.round(worldCol)
+    const snapRow = Math.round(worldRow)
+    const dropPos: [number, number, number] = [snapCol * cellFt, 0, snapRow * cellFt]
+
+    // --- Preset drop ---
+    const presetId = e.dataTransfer.getData('application/preset-id')
+    if (presetId) {
+      e.preventDefault()
+      const tStore = useTemplateStore.getState()
+      const preset = tStore.presets().find(p => p.id === presetId)
+      if (!preset) return
+      useHistoryStore.getState().pushSnapshot()
+      const obj = tStore.createFromPreset(preset, dropPos)
+      useDesignStore.getState().addPlacedObject(obj)
+      useUIStore.getState().setSelectedObjectId(obj.id)
+      mgr.dirty = true
+      return
+    }
+
+    // --- Assembly drop ---
+    const assemblyId = e.dataTransfer.getData('application/assembly-id')
+    if (assemblyId) {
+      e.preventDefault()
+      const tStore = useTemplateStore.getState()
+      const assembly = tStore.assemblies().find(a => a.id === assemblyId)
+      if (!assembly) return
+      useHistoryStore.getState().pushSnapshot()
+      const objects = tStore.createFromAssembly(assembly, dropPos)
+      const ds = useDesignStore.getState()
+      const ids: string[] = []
+      for (const obj of objects) {
+        ds.addPlacedObject(obj)
+        ids.push(obj.id)
+      }
+      useUIStore.getState().setSelectedObjectIds(ids)
+      mgr.dirty = true
+      return
+    }
+
+    // --- Regular widget drop ---
     const prefabType = e.dataTransfer.getData('application/prefab-type')
     if (!prefabType) return
     e.preventDefault()
@@ -377,28 +429,12 @@ export function Canvas2DView() {
     const prefab = PREFAB_CATALOG.find(p => p.type === prefabType)
     if (!prefab) return
 
-    const mgr = mgrRef.current
-    const cellSize = 20 * mgr.viewport.zoom
-    const cellFt = cellSizeFt(useDesignStore.getState().gridSettings.increment)
-
-    // Convert drop position to world coordinates (logical/CSS pixels)
-    const rect = canvasRef.current?.getBoundingClientRect()
-    if (!rect) return
-    const canvasX = e.clientX - rect.left
-    const canvasY = e.clientY - rect.top
-    const worldCol = (canvasX + mgr.viewport.offsetX) / cellSize
-    const worldRow = (canvasY + mgr.viewport.offsetY) / cellSize
-
-    // Snap to grid
-    const snapCol = Math.round(worldCol)
-    const snapRow = Math.round(worldRow)
-
     useHistoryStore.getState().pushSnapshot()
     const newId = crypto.randomUUID()
     useDesignStore.getState().addPlacedObject({
       id: newId,
       type: prefabType,
-      position: [snapCol * cellFt, 0, snapRow * cellFt],
+      position: dropPos,
       rotation: [0, 0, 0],
       scale: [1, 1, 1],
       size: { ...prefab.defaultSize },

@@ -9,14 +9,22 @@ import { VerifyEmailPage } from '@/components/auth/VerifyEmailPage'
 import { DashboardPage } from '@/components/pages/DashboardPage'
 import { EditorPage } from '@/components/pages/EditorPage'
 import { useAuthStore } from '@/store/authStore'
+import { useTemplateStore } from '@/store/templateStore'
 
 function App() {
   const initialize = useAuthStore((s) => s.initialize)
+  const user = useAuthStore((s) => s.user)
+  const loadTemplates = useTemplateStore((s) => s.loadTemplates)
 
   useEffect(() => {
     const unsubscribe = initialize()
     return unsubscribe
   }, [initialize])
+
+  // Load templates when user authenticates
+  useEffect(() => {
+    loadTemplates(user?.id)
+  }, [user?.id, loadTemplates])
 
   return (
     <BrowserRouter>

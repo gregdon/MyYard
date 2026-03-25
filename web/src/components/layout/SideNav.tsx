@@ -7,7 +7,8 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ToolSelector } from '@/components/sidebar/ToolSelector'
 import { WidgetPalette } from '@/components/sidebar/WidgetPalette'
-import { Paintbrush, Box } from 'lucide-react'
+import { TemplateGallery } from '@/components/sidebar/TemplateGallery'
+import { Paintbrush, Box, Library } from 'lucide-react'
 import { useUIStore } from '@/store/uiStore'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
@@ -39,6 +40,17 @@ export function SideNav() {
             <PopoverContent side="right" align="start" className="w-56 p-2">
               <p className="mb-2 text-sm font-medium">Widgets</p>
               <WidgetPalette />
+            </PopoverContent>
+          </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent cursor-pointer">
+                <Library className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent side="right" align="start" className="w-72 p-2">
+              <p className="mb-2 text-sm font-medium">Templates</p>
+              <TemplateGallery />
             </PopoverContent>
           </Popover>
         </div>
@@ -74,6 +86,18 @@ export function SideNav() {
                 </AccordionTrigger>
                 <AccordionContent>
                   <WidgetPalette />
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="templates">
+                <AccordionTrigger className="py-2 text-sm">
+                  <span className="flex items-center gap-2">
+                    <Library className="h-4 w-4" />
+                    Templates
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <TemplateGallery />
                 </AccordionContent>
               </AccordionItem>
             </Accordion>

@@ -10,6 +10,7 @@ import { Scene3DView } from '@/components/scene3d/Scene3DView'
 import { NewDesignDialog } from '@/components/dialogs/NewDesignDialog'
 import { LoadDialog } from '@/components/dialogs/LoadDialog'
 import { SaveDialog } from '@/components/dialogs/SaveDialog'
+import { SaveCompositionDialog } from '@/components/dialogs/SaveCompositionDialog'
 import { ObjectPropertiesPanel } from '@/components/sidebar/ObjectPropertiesPanel'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
@@ -26,6 +27,7 @@ export function EditorPage() {
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [showLoadDialog, setShowLoadDialog] = useState(false)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
+  const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false)
 
   const handleSave = useCallback(() => {
     const saved = saveDesign()
@@ -65,6 +67,7 @@ export function EditorPage() {
         onSave={handleSave}
         onSaveAs={handleSaveAs}
         onLoad={() => setShowLoadDialog(true)}
+        onSaveTemplate={() => setShowSaveTemplateDialog(true)}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -112,6 +115,7 @@ export function EditorPage() {
       <NewDesignDialog open={showNewDialog} onOpenChange={setShowNewDialog} />
       <LoadDialog open={showLoadDialog} onOpenChange={setShowLoadDialog} />
       <SaveDialog open={showSaveDialog} onOpenChange={setShowSaveDialog} onSave={handleSaveDialogConfirm} />
+      <SaveCompositionDialog open={showSaveTemplateDialog} onOpenChange={setShowSaveTemplateDialog} />
     </div>
   )
 }
