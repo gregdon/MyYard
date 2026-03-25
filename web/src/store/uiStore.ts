@@ -29,6 +29,7 @@ interface UIState {
   clipboard: ClipboardObject | null
   sideNavCollapsed: boolean
   hasBeenSaved: boolean
+  editingTemplateId: string | null
 
   setViewMode: (mode: ViewMode) => void
   setActiveTool: (tool: ToolMode) => void
@@ -47,6 +48,7 @@ interface UIState {
   setSideNavCollapsed: (collapsed: boolean) => void
   toggleSideNav: () => void
   setHasBeenSaved: (saved: boolean) => void
+  setEditingTemplateId: (id: string | null) => void
 }
 
 export const useUIStore = create<UIState>()(subscribeWithSelector((set, get) => ({
@@ -64,6 +66,7 @@ export const useUIStore = create<UIState>()(subscribeWithSelector((set, get) => 
   clipboard: null,
   sideNavCollapsed: false,
   hasBeenSaved: false,
+  editingTemplateId: null,
 
   setViewMode: (mode) => set({ viewMode: mode }),
   setActiveTool: (tool) => set({ activeTool: tool }),
@@ -89,6 +92,7 @@ export const useUIStore = create<UIState>()(subscribeWithSelector((set, get) => 
   setSideNavCollapsed: (collapsed) => set({ sideNavCollapsed: collapsed }),
   toggleSideNav: () => set((s) => ({ sideNavCollapsed: !s.sideNavCollapsed })),
   setHasBeenSaved: (saved) => set({ hasBeenSaved: saved }),
+  setEditingTemplateId: (id) => set({ editingTemplateId: id }),
   copyObject: (obj) => set({
     clipboard: {
       type: obj.type,

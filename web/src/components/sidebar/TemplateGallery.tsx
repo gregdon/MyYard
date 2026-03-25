@@ -1,5 +1,9 @@
 import { useState, useMemo } from 'react'
 import { useTemplateStore } from '@/store/templateStore'
+import { useUIStore } from '@/store/uiStore'
+import { useDesignStore } from '@/store/designStore'
+import { useHistoryStore } from '@/store/historyStore'
+import { useAuthStore } from '@/store/authStore'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,8 +13,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
-import { Package, Layers, Loader2, Inbox, Image } from 'lucide-react'
-import type { Template } from '@/types/templates'
+import { Package, Layers, Loader2, Inbox, Image, Pencil, Trash2 } from 'lucide-react'
+import type { Template, WidgetPreset, WidgetAssembly } from '@/types/templates'
 
 function matchesSearch(template: Template, query: string): boolean {
   const q = query.toLowerCase()
@@ -23,13 +27,19 @@ function matchesSearch(template: Template, query: string): boolean {
 function TemplateCard({
   template,
   dragDataType,
+  onEdit,
+  onDelete,
+  canEdit,
 }: {
   template: Template
   dragDataType: string
+  onEdit: () => void
+  onDelete: () => void
+  canEdit: boolean
 }) {
   return (
     <div
-      className="flex gap-2 rounded-md border bg-card p-2 text-xs hover:bg-accent
+      className="group relative flex gap-2 rounded-md border bg-card p-2 text-xs hover:bg-accent
                  transition-colors cursor-grab active:cursor-grabbing"
       draggable
       onDragStart={(e) => {
@@ -64,6 +74,26 @@ function TemplateCard({
           </p>
         )}
       </div>
+
+      {/* Edit/Delete actions - shown on hover */}
+      {canEdit && (
+        <div className="absolute right-1 top-1 hidden group-hover:flex gap-0.5">
+          <button
+            className="flex h-5 w-5 items-center justify-center rounded bg-muted hover:bg-primary hover:text-primary-foreground"
+            onClick={(e) => { e.stopPropagation(); onEdit() }}
+            title="Edit in canvas"
+          >
+            <Pencil className="h-3 w-3" />
+          </button>
+          <button
+            className="flex h-5 w-5 items-center justify-center rounded bg-muted hover:bg-destructive hover:text-destructive-foreground"
+            onClick={(e) => { e.stopPropagation(); onDelete() }}
+            title="Delete template"
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -71,11 +101,46 @@ function TemplateCard({
 export function TemplateGallery() {
   const loading = useTemplateStore((s) => s.loading)
   const templates = useTemplateStore((s) => s.templates)
+  const deleteTemplate = useTemplateStore((s) => s.deleteTemplate)
+  const createFromPreset = useTemplateStore((s) => s.createFromPreset)
+  const createFromAssembly = useTemplateStore((s) => s.createFromAssembly)
+  const user = useAuthStore((s) => s.user)
   const presets = useMemo(() => templates.filter(t => t.kind === 'preset'), [templates])
   const assemblies = useMemo(() => templates.filter(t => t.kind === 'assembly'), [templates])
 
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
+
+  const handleEdit = (template: Template) => {
+    // Place template objects on canvas for editing, track template ID
+    useHistoryStore.getState().pushSnapshot()
+    const ds = useDesignStore.getState()
+
+    if (template.kind === 'preset') {
+      const preset = template as WidgetPreset
+      const obj = createFromPreset(preset, [5, 0, 5])
+      ds.addPlacedObject(obj)
+      useUIStore.getState().setSelectedObjectId(obj.id)
+    } else {
+      const assembly = template as WidgetAssembly
+      const objects = createFromAssembly(assembly, [10, 0, 10])
+      const ids: string[] = []
+      for (const obj of objects) {
+        ds.addPlacedObject(obj)
+        ids.push(obj.id)
+      }
+      useUIStore.getState().setSelectedObjectIds(ids)
+    }
+    useUIStore.getState().setEditingTemplateId(template.id)
+  }
+
+  const handleDelete = async (template: Template) => {
+    if (!user) return
+    const isBuiltin = template.visibility === 'builtin'
+    if (!isBuiltin || user.role === 'admin') {
+      await deleteTemplate(template.id, user.id, isBuiltin)
+    }
+  }
 
   // Collect unique categories from all templates
   const categories = useMemo(() => {
@@ -168,6 +233,9 @@ export function TemplateGallery() {
                     key={preset.id}
                     template={preset}
                     dragDataType="application/preset-id"
+                    onEdit={() => handleEdit(preset)}
+                    onDelete={() => handleDelete(preset)}
+                    canEdit={preset.visibility === 'user' || user?.role === 'admin'}
                   />
                 ))}
               </div>
@@ -191,6 +259,9 @@ export function TemplateGallery() {
                     key={assembly.id}
                     template={assembly}
                     dragDataType="application/assembly-id"
+                    onEdit={() => handleEdit(assembly)}
+                    onDelete={() => handleDelete(assembly)}
+                    canEdit={assembly.visibility === 'user' || user?.role === 'admin'}
                   />
                 ))}
               </div>

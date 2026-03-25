@@ -1,7 +1,7 @@
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { Crosshair, FilePlus, FolderOpen, Menu, Save, SaveAll, BookmarkPlus } from 'lucide-react'
+import { Crosshair, FilePlus, FolderOpen, Menu, Save, SaveAll, BookmarkPlus, RefreshCw } from 'lucide-react'
 import { useUIStore } from '@/store/uiStore'
 import { UndoRedoControls } from './UndoRedoControls'
 import { GridSettings } from './GridSettings'
@@ -14,12 +14,14 @@ interface EditorToolbarProps {
   onSaveAs: () => void
   onLoad: () => void
   onSaveTemplate?: () => void
+  onUpdateTemplate?: () => void
 }
 
-export function EditorToolbar({ onNew, onSave, onSaveAs, onLoad, onSaveTemplate }: EditorToolbarProps) {
+export function EditorToolbar({ onNew, onSave, onSaveAs, onLoad, onSaveTemplate, onUpdateTemplate }: EditorToolbarProps) {
   const toggleSideNav = useUIStore((s) => s.toggleSideNav)
   const selectedId = useUIStore((s) => s.selectedObjectId)
   const selectedIds = useUIStore((s) => s.selectedObjectIds)
+  const editingTemplateId = useUIStore((s) => s.editingTemplateId)
   const hasSelection = !!selectedId || selectedIds.length > 0
 
   return (
@@ -80,6 +82,20 @@ export function EditorToolbar({ onNew, onSave, onSaveAs, onLoad, onSaveTemplate 
         </TooltipTrigger>
         <TooltipContent>Save Selection as Template</TooltipContent>
       </Tooltip>
+      {editingTemplateId && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost" size="icon" className="h-7 w-7 text-primary"
+              onClick={onUpdateTemplate}
+              disabled={!hasSelection}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Update Template</TooltipContent>
+        </Tooltip>
+      )}
       <Separator orientation="vertical" className="h-5" />
 
       {/* Undo / Redo */}

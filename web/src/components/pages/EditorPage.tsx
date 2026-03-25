@@ -68,6 +68,7 @@ export function EditorPage() {
         onSaveAs={handleSaveAs}
         onLoad={() => setShowLoadDialog(true)}
         onSaveTemplate={() => setShowSaveTemplateDialog(true)}
+        onUpdateTemplate={() => setShowSaveTemplateDialog(true)}
       />
 
       <div className="flex flex-1 overflow-hidden">

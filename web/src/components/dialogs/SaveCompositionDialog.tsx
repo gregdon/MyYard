@@ -45,9 +45,13 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
   const selectedObjectId = useUIStore((s) => s.selectedObjectId)
   const selectedObjectIds = useUIStore((s) => s.selectedObjectIds)
   const user = useAuthStore((s) => s.user)
+  const templates = useTemplateStore((s) => s.templates)
   const extractPreset = useTemplateStore((s) => s.extractPreset)
   const extractAssembly = useTemplateStore((s) => s.extractAssembly)
   const saveTemplate = useTemplateStore((s) => s.saveTemplate)
+  const editingTemplateId = useUIStore((s) => s.editingTemplateId)
+  const setEditingTemplateId = useUIStore((s) => s.setEditingTemplateId)
+  const editingTemplate = editingTemplateId ? templates.find(t => t.id === editingTemplateId) : null
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -76,11 +80,11 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
   // Reset form and auto-capture when dialog opens
   useEffect(() => {
     if (open) {
-      setName('')
-      setDescription('')
-      setCategory('structures')
-      setTags('')
-      setSaveAsBuiltin(false)
+      setName(editingTemplate?.name ?? '')
+      setDescription(editingTemplate?.description ?? '')
+      setCategory(editingTemplate?.category ?? 'structures')
+      setTags(editingTemplate?.tags.join(', ') ?? '')
+      setSaveAsBuiltin(editingTemplate?.visibility === 'builtin')
       setSaving(false)
       setScreenshots([])
       setPrimaryIndex(0)
@@ -90,7 +94,7 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
         setScreenshots([dataUrl])
       })
     }
-  }, [open])
+  }, [open, editingTemplate])
 
   const handleCapture = async () => {
     setCapturing(true)
@@ -127,6 +131,11 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
         template = extractAssembly(selectedObjects, meta)
       }
 
+      // If editing an existing template, preserve its ID
+      if (editingTemplateId) {
+        template.id = editingTemplateId
+      }
+
       // Upload screenshots to Firebase Storage
       if (screenshots.length > 0) {
         try {
@@ -150,6 +159,7 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
       }
 
       await saveTemplate(template, user.id)
+      setEditingTemplateId(null)
       onOpenChange(false)
     } catch {
       // Could add error toast here
@@ -162,7 +172,7 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Save as Template</DialogTitle>
+          <DialogTitle>{editingTemplateId ? 'Update Template' : 'Save as Template'}</DialogTitle>
           <DialogDescription>
             Saving {objectCount} {objectCount === 1 ? 'object' : 'objects'} as{' '}
             {compositionType}
@@ -285,7 +295,7 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
             onClick={handleSave}
             disabled={!name.trim() || objectCount === 0 || saving}
           >
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? 'Saving...' : editingTemplateId ? 'Update' : 'Save'}
           </Button>
         </DialogFooter>
       </DialogContent>
