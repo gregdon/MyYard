@@ -1,9 +1,4 @@
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion'
+import { useState } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ToolSelector } from '@/components/sidebar/ToolSelector'
 import { WidgetPalette } from '@/components/sidebar/WidgetPalette'
@@ -11,99 +6,76 @@ import { TemplateGallery } from '@/components/sidebar/TemplateGallery'
 import { Paintbrush, Box, Library } from 'lucide-react'
 import { useUIStore } from '@/store/uiStore'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+
+type SideTab = 'tools' | 'widgets' | 'templates'
+
+const TABS: { id: SideTab; label: string; icon: typeof Paintbrush }[] = [
+  { id: 'tools', label: 'Tools', icon: Paintbrush },
+  { id: 'widgets', label: 'Widgets', icon: Box },
+  { id: 'templates', label: 'Templates', icon: Library },
+]
 
 export function SideNav() {
   const collapsed = useUIStore((s) => s.sideNavCollapsed)
+  const [activeTab, setActiveTab] = useState<SideTab>('widgets')
 
+  // Collapsed: icon strip with flyout popovers
+  if (collapsed) {
+    return (
+      <div className="flex h-full flex-col items-center gap-1 bg-card pt-2 px-1">
+        {TABS.map(({ id, label, icon: Icon }) => (
+          <Popover key={id}>
+            <PopoverTrigger asChild>
+              <button className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent cursor-pointer">
+                <Icon className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent side="right" align="start" className={id === 'templates' ? 'w-72 p-2' : 'w-56 p-2'}>
+              <p className="mb-2 text-sm font-medium">{label}</p>
+              {id === 'tools' && <ToolSelector />}
+              {id === 'widgets' && <WidgetPalette />}
+              {id === 'templates' && <TemplateGallery />}
+            </PopoverContent>
+          </Popover>
+        ))}
+      </div>
+    )
+  }
+
+  // Expanded: tab content + bottom tab bar
   return (
     <div className="flex h-full min-h-0 flex-col bg-card">
-      {/* Collapsed icon strip with flyout popovers */}
-      {collapsed && (
-        <div className="flex flex-col items-center gap-1 pt-2 px-1">
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent cursor-pointer">
-                <Paintbrush className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent side="right" align="start" className="w-56 p-2">
-              <p className="mb-2 text-sm font-medium">Drawing Tools</p>
-              <ToolSelector />
-            </PopoverContent>
-          </Popover>
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent cursor-pointer">
-                <Box className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent side="right" align="start" className="w-56 p-2">
-              <p className="mb-2 text-sm font-medium">Widgets</p>
-              <WidgetPalette />
-            </PopoverContent>
-          </Popover>
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent cursor-pointer">
-                <Library className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent side="right" align="start" className="w-72 p-2">
-              <p className="mb-2 text-sm font-medium">Templates</p>
-              <TemplateGallery />
-            </PopoverContent>
-          </Popover>
+      {/* Tab content area */}
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="p-3">
+          {activeTab === 'tools' && <ToolSelector />}
+          {activeTab === 'widgets' && <WidgetPalette />}
+          {activeTab === 'templates' && <TemplateGallery />}
         </div>
-      )}
+      </ScrollArea>
 
-      {/* Expanded content */}
-      {!collapsed && (
-        <>
-          {/* Sidebar header */}
-          <div className="border-b px-3 py-2">
-            <span className="text-sm font-semibold">Tools</span>
-          </div>
-          <ScrollArea className="min-h-0 flex-1">
-            <Accordion type="multiple" defaultValue={['tools', 'widgets']} className="px-3 py-2">
-              <AccordionItem value="tools">
-                <AccordionTrigger className="py-2 text-sm">
-                  <span className="flex items-center gap-2">
-                    <Paintbrush className="h-4 w-4" />
-                    Drawing Tools
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <ToolSelector />
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="widgets">
-                <AccordionTrigger className="py-2 text-sm">
-                  <span className="flex items-center gap-2">
-                    <Box className="h-4 w-4" />
-                    Widgets
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <WidgetPalette />
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="templates">
-                <AccordionTrigger className="py-2 text-sm">
-                  <span className="flex items-center gap-2">
-                    <Library className="h-4 w-4" />
-                    Templates
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <TemplateGallery />
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </ScrollArea>
-        </>
-      )}
+      {/* Bottom tab bar */}
+      <div className="flex border-t bg-card">
+        {TABS.map(({ id, label, icon: Icon }) => (
+          <Tooltip key={id}>
+            <TooltipTrigger asChild>
+              <button
+                className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] transition-colors cursor-pointer ${
+                  activeTab === id
+                    ? 'text-primary bg-accent'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                }`}
+                onClick={() => setActiveTab(id)}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">{label}</TooltipContent>
+          </Tooltip>
+        ))}
+      </div>
     </div>
   )
 }

@@ -28,6 +28,7 @@ interface UIState {
   selectedObjectIds: string[]
   clipboard: ClipboardObject | null
   sideNavCollapsed: boolean
+  sideNavWidth: number
   hasBeenSaved: boolean
   editingTemplateId: string | null
 
@@ -46,6 +47,7 @@ interface UIState {
   toggleObjectSelection: (id: string) => void
   copyObject: (obj: PlacedObject3D) => void
   setSideNavCollapsed: (collapsed: boolean) => void
+  setSideNavWidth: (width: number) => void
   toggleSideNav: () => void
   setHasBeenSaved: (saved: boolean) => void
   setEditingTemplateId: (id: string | null) => void
@@ -65,6 +67,7 @@ export const useUIStore = create<UIState>()(subscribeWithSelector((set, get) => 
   selectedObjectIds: [],
   clipboard: null,
   sideNavCollapsed: false,
+  sideNavWidth: 256,
   hasBeenSaved: false,
   editingTemplateId: null,
 
@@ -90,6 +93,7 @@ export const useUIStore = create<UIState>()(subscribeWithSelector((set, get) => 
     return { selectedObjectIds: ids, selectedObjectId: ids[0] ?? null }
   }),
   setSideNavCollapsed: (collapsed) => set({ sideNavCollapsed: collapsed }),
+  setSideNavWidth: (width) => set({ sideNavWidth: Math.max(200, Math.min(450, width)) }),
   toggleSideNav: () => set((s) => ({ sideNavCollapsed: !s.sideNavCollapsed })),
   setHasBeenSaved: (saved) => set({ hasBeenSaved: saved }),
   setEditingTemplateId: (id) => set({ editingTemplateId: id }),

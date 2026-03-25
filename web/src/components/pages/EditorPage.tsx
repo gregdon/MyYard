@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useUIStore } from '@/store/uiStore'
 import { useDesignStore } from '@/store/designStore'
 import { useDesignIO } from '@/hooks/useDesignIO'
@@ -21,6 +21,9 @@ export function EditorPage() {
   const placedObjects = useDesignStore((s) => s.placedObjects)
   const sideNavCollapsed = useUIStore((s) => s.sideNavCollapsed)
   const setSideNavCollapsed = useUIStore((s) => s.setSideNavCollapsed)
+  const sideNavWidth = useUIStore((s) => s.sideNavWidth)
+  const setSideNavWidth = useUIStore((s) => s.setSideNavWidth)
+  const resizingRef = useRef(false)
 
   const { saveDesign, saveAsDesign } = useDesignIO()
   useKeyboardShortcuts()
@@ -49,6 +52,31 @@ export function EditorPage() {
     return () => window.removeEventListener('save-as', handler)
   }, [])
 
+  // Sidebar resize drag handlers
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    resizingRef.current = true
+    const startX = e.clientX
+    const startWidth = sideNavWidth
+
+    const onMove = (ev: MouseEvent) => {
+      if (!resizingRef.current) return
+      const delta = ev.clientX - startX
+      setSideNavWidth(startWidth + delta)
+    }
+    const onUp = () => {
+      resizingRef.current = false
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }, [sideNavWidth, setSideNavWidth])
+
   // Auto-collapse sidebar on small screens
   useEffect(() => {
     const mq = window.matchMedia(`(max-width: ${MD_BREAKPOINT}px)`)
@@ -74,12 +102,19 @@ export function EditorPage() {
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <div
-          className={`shrink-0 overflow-hidden border-r transition-[width] duration-200 ${
-            sideNavCollapsed ? 'w-12' : 'w-64'
-          }`}
+          className="shrink-0 overflow-hidden border-r"
+          style={{ width: sideNavCollapsed ? 48 : sideNavWidth }}
         >
           <SideNav />
         </div>
+
+        {/* Resize handle */}
+        {!sideNavCollapsed && (
+          <div
+            className="w-1 shrink-0 cursor-col-resize bg-transparent hover:bg-primary/20 active:bg-primary/40 transition-colors"
+            onMouseDown={handleResizeStart}
+          />
+        )}
 
         {/* Canvas area */}
         <div className="relative flex-1 overflow-hidden">
