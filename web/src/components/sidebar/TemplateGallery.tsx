@@ -70,8 +70,9 @@ function TemplateCard({
 
 export function TemplateGallery() {
   const loading = useTemplateStore((s) => s.loading)
-  const presets = useTemplateStore((s) => s.presets())
-  const assemblies = useTemplateStore((s) => s.assemblies())
+  const templates = useTemplateStore((s) => s.templates)
+  const presets = useMemo(() => templates.filter(t => t.kind === 'preset'), [templates])
+  const assemblies = useMemo(() => templates.filter(t => t.kind === 'assembly'), [templates])
 
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
