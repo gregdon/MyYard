@@ -1,5 +1,5 @@
-import { Suspense } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { Suspense, useEffect } from 'react'
+import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { useDesignStore } from '@/store/designStore'
 import { cellSizeFt } from '@/utils/gridHelpers'
@@ -7,6 +7,32 @@ import { Lighting } from './Lighting'
 import { Ground } from './Ground'
 import { TerrainMesh } from './TerrainMesh'
 import { PrefabRenderer } from './PrefabRenderer'
+
+/** Exposes the gl context so external code can capture screenshots via custom event */
+function ScreenshotBridge() {
+  const { gl } = useThree()
+  useEffect(() => {
+    const handler = () => {
+      const dataUrl = gl.domElement.toDataURL('image/png')
+      window.dispatchEvent(new CustomEvent('screenshot-result', { detail: dataUrl }))
+    }
+    window.addEventListener('screenshot-capture', handler)
+    return () => window.removeEventListener('screenshot-capture', handler)
+  }, [gl])
+  return null
+}
+
+/** Capture a screenshot from the 3D canvas. Returns a data URL. */
+export function capture3DScreenshot(): Promise<string> {
+  return new Promise((resolve) => {
+    const handler = (e: Event) => {
+      window.removeEventListener('screenshot-result', handler)
+      resolve((e as CustomEvent).detail as string)
+    }
+    window.addEventListener('screenshot-result', handler)
+    window.dispatchEvent(new Event('screenshot-capture'))
+  })
+}
 
 export function Scene3DView() {
   const gridSettings = useDesignStore((s) => s.gridSettings)
@@ -30,6 +56,7 @@ export function Scene3DView() {
         <Ground widthFt={gridSettings.widthFt} heightFt={gridSettings.heightFt} />
         <TerrainMesh />
         <PrefabRenderer />
+        <ScreenshotBridge />
         <OrbitControls
           makeDefault
           enableDamping

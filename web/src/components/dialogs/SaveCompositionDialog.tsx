@@ -3,6 +3,8 @@ import { useDesignStore } from '@/store/designStore'
 import { useUIStore } from '@/store/uiStore'
 import { useAuthStore } from '@/store/authStore'
 import { useTemplateStore } from '@/store/templateStore'
+import { capture3DScreenshot } from '@/components/scene3d/Scene3DView'
+import { uploadTemplateImage } from '@/services/storageService'
 import {
   Dialog,
   DialogContent,
@@ -23,6 +25,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select'
+import { Camera, Star, Trash2 } from 'lucide-react'
 
 interface Props {
   open: boolean
@@ -52,10 +55,12 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
   const [tags, setTags] = useState('')
   const [saveAsBuiltin, setSaveAsBuiltin] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [screenshots, setScreenshots] = useState<string[]>([])
+  const [primaryIndex, setPrimaryIndex] = useState(0)
+  const [capturing, setCapturing] = useState(false)
 
   const isAdmin = user?.role === 'admin'
 
-  // Resolve selected objects from the store
   const selectedObjects = useMemo(() => {
     const ids = selectedObjectIds.length > 0
       ? selectedObjectIds
@@ -68,7 +73,7 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
   const objectCount = selectedObjects.length
   const compositionType = objectCount === 1 ? 'Preset' : 'Assembly'
 
-  // Reset form when dialog opens
+  // Reset form and auto-capture when dialog opens
   useEffect(() => {
     if (open) {
       setName('')
@@ -77,8 +82,29 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
       setTags('')
       setSaveAsBuiltin(false)
       setSaving(false)
+      setScreenshots([])
+      setPrimaryIndex(0)
+      setCapturing(false)
+      // Auto-capture initial screenshot from 3D view
+      capture3DScreenshot().then((dataUrl) => {
+        setScreenshots([dataUrl])
+      })
     }
   }, [open])
+
+  const handleCapture = async () => {
+    setCapturing(true)
+    const dataUrl = await capture3DScreenshot()
+    setScreenshots((prev) => [...prev, dataUrl])
+    setCapturing(false)
+  }
+
+  const handleRemoveScreenshot = (index: number) => {
+    setScreenshots((prev) => prev.filter((_, i) => i !== index))
+    if (primaryIndex >= index && primaryIndex > 0) {
+      setPrimaryIndex(primaryIndex - 1)
+    }
+  }
 
   const handleSave = async () => {
     if (!name.trim() || objectCount === 0 || !user) return
@@ -101,10 +127,32 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
         template = extractAssembly(selectedObjects, meta)
       }
 
+      // Upload screenshots to Firebase Storage
+      if (screenshots.length > 0) {
+        try {
+          const primaryUrl = await uploadTemplateImage(template.id, screenshots[primaryIndex], 0)
+          template.thumbnailUrl = primaryUrl
+
+          // Upload additional screenshots (stored as imageUrls array)
+          const additionalUrls: string[] = [primaryUrl]
+          for (let i = 0; i < screenshots.length; i++) {
+            if (i !== primaryIndex) {
+              const url = await uploadTemplateImage(template.id, screenshots[i], i + 1)
+              additionalUrls.push(url)
+            }
+          }
+          // Store all image URLs on the template
+          ;(template as unknown as Record<string, unknown>).imageUrls = additionalUrls
+        } catch {
+          // Storage may not be enabled - save without images
+          console.warn('Failed to upload screenshots - saving without images')
+        }
+      }
+
       await saveTemplate(template, user.id)
       onOpenChange(false)
     } catch {
-      // Could add error toast here in the future
+      // Could add error toast here
     } finally {
       setSaving(false)
     }
@@ -112,7 +160,7 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Save as Template</DialogTitle>
           <DialogDescription>
@@ -122,6 +170,48 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {/* Screenshot gallery */}
+          <div className="space-y-2">
+            <Label>Screenshots</Label>
+            <div className="flex gap-2 flex-wrap">
+              {screenshots.map((src, i) => (
+                <div
+                  key={i}
+                  className={`relative group cursor-pointer rounded border-2 overflow-hidden ${
+                    i === primaryIndex ? 'border-primary' : 'border-muted'
+                  }`}
+                  onClick={() => setPrimaryIndex(i)}
+                >
+                  <img src={src} alt={`Screenshot ${i + 1}`} className="w-20 h-14 object-cover" />
+                  {i === primaryIndex && (
+                    <div className="absolute top-0.5 left-0.5">
+                      <Star className="h-3 w-3 fill-primary text-primary" />
+                    </div>
+                  )}
+                  <button
+                    className="absolute top-0.5 right-0.5 hidden group-hover:flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-destructive-foreground"
+                    onClick={(e) => { e.stopPropagation(); handleRemoveScreenshot(i) }}
+                  >
+                    <Trash2 className="h-2.5 w-2.5" />
+                  </button>
+                </div>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-14 w-20"
+                onClick={handleCapture}
+                disabled={capturing}
+              >
+                <Camera className="h-4 w-4 mr-1" />
+                {capturing ? '...' : 'Add'}
+              </Button>
+            </div>
+            {screenshots.length > 1 && (
+              <p className="text-xs text-muted-foreground">Click to set primary thumbnail</p>
+            )}
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="comp-name">Name</Label>
             <Input
