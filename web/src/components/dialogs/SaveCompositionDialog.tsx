@@ -4,7 +4,7 @@ import { useUIStore } from '@/store/uiStore'
 import { useAuthStore } from '@/store/authStore'
 import { useTemplateStore } from '@/store/templateStore'
 import { capture3DScreenshot } from '@/components/scene3d/Scene3DView'
-import { uploadTemplateImage } from '@/services/storageService'
+import { uploadAndSaveTemplateImage } from '@/services/storageService'
 import {
   Dialog,
   DialogContent,
@@ -136,22 +136,24 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
         template.id = editingTemplateId
       }
 
-      // Upload screenshots to Supabase Storage
+      // Upload screenshots to Supabase Storage + save to template_images table
       if (screenshots.length > 0) {
         try {
-          const primaryUrl = await uploadTemplateImage(template.id, screenshots[primaryIndex], 0)
-          template.thumbnailUrl = primaryUrl
+          // Upload primary first
+          const primary = await uploadAndSaveTemplateImage(
+            template.id, screenshots[primaryIndex], true, 0,
+          )
+          template.thumbnailUrl = primary.url
 
-          // Upload additional screenshots (stored as imageUrls array)
-          const additionalUrls: string[] = [primaryUrl]
+          // Upload remaining screenshots
+          let sortOrder = 1
           for (let i = 0; i < screenshots.length; i++) {
             if (i !== primaryIndex) {
-              const url = await uploadTemplateImage(template.id, screenshots[i], i + 1)
-              additionalUrls.push(url)
+              await uploadAndSaveTemplateImage(
+                template.id, screenshots[i], false, sortOrder++,
+              )
             }
           }
-          // Store all image URLs on the template
-          ;(template as unknown as Record<string, unknown>).imageUrls = additionalUrls
         } catch {
           // Storage may not be enabled - save without images
           console.warn('Failed to upload screenshots - saving without images')
