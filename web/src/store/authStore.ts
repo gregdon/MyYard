@@ -24,12 +24,12 @@ interface AuthState {
 async function mapSupabaseUser(sbUser: SupabaseUser): Promise<User> {
   let role: UserRole = 'user'
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', sbUser.id)
       .single()
-    if (data?.role) {
+    if (!error && data?.role) {
       role = data.role as UserRole
     }
   } catch {
@@ -47,6 +47,33 @@ async function mapSupabaseUser(sbUser: SupabaseUser): Promise<User> {
   }
 }
 
+/** Handle session state - shared by getSession and onAuthStateChange */
+async function handleSession(session: Session | null, set: (state: Partial<AuthState>) => void) {
+  if (session?.user) {
+    try {
+      const user = await mapSupabaseUser(session.user)
+      set({ user, isAuthenticated: true, isLoading: false })
+    } catch {
+      // If profile fetch fails, still log in with defaults
+      const meta = session.user.user_metadata ?? {}
+      set({
+        user: {
+          id: session.user.id,
+          email: session.user.email ?? '',
+          name: meta.full_name ?? meta.name ?? session.user.email?.split('@')[0] ?? '',
+          role: 'user',
+          emailVerified: !!session.user.email_confirmed_at,
+          photoURL: meta.avatar_url ?? meta.picture ?? undefined,
+        },
+        isAuthenticated: true,
+        isLoading: false,
+      })
+    }
+  } else {
+    set({ user: null, isAuthenticated: false, isLoading: false })
+  }
+}
+
 export const useAuthStore = create<AuthState>()((set) => ({
   user: null,
   isAuthenticated: false,
@@ -54,27 +81,19 @@ export const useAuthStore = create<AuthState>()((set) => ({
   error: null,
 
   initialize: () => {
-    // Check existing session on load
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const user = await mapSupabaseUser(session.user)
-        set({ user, isAuthenticated: true, isLoading: false })
-      } else {
-        set({ user: null, isAuthenticated: false, isLoading: false })
-      }
-    })
-
-    // Listen for auth state changes
+    // Listen for auth state changes (fires on sign in, sign out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event: string, session: Session | null) => {
-        if (session?.user) {
-          const user = await mapSupabaseUser(session.user)
-          set({ user, isAuthenticated: true, isLoading: false })
-        } else {
-          set({ user: null, isAuthenticated: false, isLoading: false })
-        }
+      async (_event, session) => {
+        await handleSession(session, set)
       }
     )
+
+    // Check existing session on load (fallback if onAuthStateChange doesn't fire)
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      await handleSession(session, set)
+    }).catch(() => {
+      set({ user: null, isAuthenticated: false, isLoading: false })
+    })
 
     return () => subscription.unsubscribe()
   },

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useDesignStore } from '@/store/designStore'
 import { useUIStore } from '@/store/uiStore'
 import { useAuthStore } from '@/store/authStore'
@@ -25,7 +25,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select'
-import { Camera, Star, Trash2 } from 'lucide-react'
+import { Camera, ImagePlus, Star, Trash2 } from 'lucide-react'
 
 interface Props {
   open: boolean
@@ -62,6 +62,7 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
   const [screenshots, setScreenshots] = useState<string[]>([])
   const [primaryIndex, setPrimaryIndex] = useState(0)
   const [capturing, setCapturing] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const isAdmin = user?.role === 'admin'
 
@@ -71,8 +72,13 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
       : selectedObjectId
         ? [selectedObjectId]
         : []
-    return placedObjects.filter((obj) => ids.includes(obj.id))
-  }, [placedObjects, selectedObjectId, selectedObjectIds])
+    const selected = placedObjects.filter((obj) => ids.includes(obj.id))
+    // When editing a template with no active selection, use all placed objects
+    if (selected.length === 0 && editingTemplateId) {
+      return placedObjects
+    }
+    return selected
+  }, [placedObjects, selectedObjectId, selectedObjectIds, editingTemplateId])
 
   const objectCount = selectedObjects.length
   const compositionType = objectCount === 1 ? 'Preset' : 'Assembly'
@@ -90,17 +96,41 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
       setPrimaryIndex(0)
       setCapturing(false)
       // Auto-capture initial screenshot from 3D view
-      capture3DScreenshot().then((dataUrl) => {
-        setScreenshots([dataUrl])
-      })
+      capture3DScreenshot()
+        .then((dataUrl) => setScreenshots([dataUrl]))
+        .catch(() => {
+          // 3D view may not be active — screenshot skipped
+        })
     }
   }, [open, editingTemplate])
 
   const handleCapture = async () => {
     setCapturing(true)
-    const dataUrl = await capture3DScreenshot()
-    setScreenshots((prev) => [...prev, dataUrl])
-    setCapturing(false)
+    try {
+      const dataUrl = await capture3DScreenshot()
+      setScreenshots((prev) => [...prev, dataUrl])
+    } catch {
+      // 3D view may not be active
+    } finally {
+      setCapturing(false)
+    }
+  }
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith('image/')) continue
+      const reader = new FileReader()
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setScreenshots((prev) => [...prev, reader.result as string])
+        }
+      }
+      reader.readAsDataURL(file)
+    }
+    // Reset input so same file can be re-selected
+    e.target.value = ''
   }
 
   const handleRemoveScreenshot = (index: number) => {
@@ -211,13 +241,30 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-14 w-20"
+                className="h-14 w-10"
                 onClick={handleCapture}
                 disabled={capturing}
+                title="Capture from 3D view"
               >
-                <Camera className="h-4 w-4 mr-1" />
-                {capturing ? '...' : 'Add'}
+                <Camera className="h-4 w-4" />
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-14 w-10"
+                onClick={() => fileInputRef.current?.click()}
+                title="Upload image file"
+              >
+                <ImagePlus className="h-4 w-4" />
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                multiple
+                className="hidden"
+                onChange={handleFileUpload}
+              />
             </div>
             {screenshots.length > 1 && (
               <p className="text-xs text-muted-foreground">Click to set primary thumbnail</p>
