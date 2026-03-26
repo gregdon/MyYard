@@ -136,7 +136,7 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
         template.id = editingTemplateId
       }
 
-      // Upload screenshots to Firebase Storage
+      // Upload screenshots to Supabase Storage
       if (screenshots.length > 0) {
         try {
           const primaryUrl = await uploadTemplateImage(template.id, screenshots[primaryIndex], 0)

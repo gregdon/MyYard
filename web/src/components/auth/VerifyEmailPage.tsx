@@ -18,7 +18,7 @@ export function VerifyEmailPage() {
   }
 
   const handleRefresh = () => {
-    // Reload the page to re-check emailVerified from Firebase
+    // Reload the page to re-check emailVerified from Supabase
     window.location.reload()
   }
 

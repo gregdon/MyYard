@@ -33,7 +33,7 @@ export function RegisterPage() {
   const handleGoogle = async () => {
     try {
       await loginWithGoogle()
-      navigate('/')
+      // Redirect flow - browser navigates to Google, then back to app
     } catch {
       // error is set in store
     }
