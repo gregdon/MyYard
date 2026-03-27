@@ -288,7 +288,7 @@ export const useTabStore = create<TabState>()(subscribeWithSelector((set, get) =
 
     // Create a small blank canvas for template building
     useDesignStore.getState().newDesign(
-      { widthFt: 20, heightFt: 20, cellSizeInches: 3 },
+      { widthFt: 20, heightFt: 20, increment: '3in' },
       'Untitled Template'
     )
     useHistoryStore.getState().clear()
