@@ -42,12 +42,13 @@ export function EditorPage() {
   const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false)
   const [closeTabAfterTemplateSave, setCloseTabAfterTemplateSave] = useState(false)
 
-  // Initialize tabs on first render — Start tab only
+  // Initialize tabs on first render — Start tab + empty project
   const initialized = useRef(false)
   useEffect(() => {
     if (!initialized.current && tabs.length === 0) {
       initialized.current = true
       openStartTab()
+      openDesignTab()
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
