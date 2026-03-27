@@ -44,7 +44,7 @@ export function EditorToolbar({ onNew, onSave, onSaveAs, onLoad, onSaveTemplate,
             <FilePlus className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>New Design</TooltipContent>
+        <TooltipContent>New Project</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -83,18 +83,13 @@ export function EditorToolbar({ onNew, onSave, onSaveAs, onLoad, onSaveTemplate,
         <TooltipContent>Save Selection as Template</TooltipContent>
       </Tooltip>
       {editingTemplateId && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost" size="icon" className="h-7 w-7 text-primary"
-              onClick={onUpdateTemplate}
-              disabled={!hasSelection}
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Update Template</TooltipContent>
-        </Tooltip>
+        <Button
+          variant="default" size="sm" className="h-7 gap-1 px-3 text-xs"
+          onClick={onUpdateTemplate}
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+          Update Template
+        </Button>
       )}
       <Separator orientation="vertical" className="h-5" />
 

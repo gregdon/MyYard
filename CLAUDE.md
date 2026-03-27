@@ -1,7 +1,7 @@
 # Outdoor Living Designer
 
 ## Project Overview
-React 19 + TypeScript 5.9 + Vite 7 app for designing outdoor living spaces. Dual-view editor: 2D grid canvas (HTML5 Canvas, imperative rendering) and 3D scene (Three.js via react-three-fiber). State managed by Zustand. Auth via Firebase. Deployed to Vercel.
+React 19 + TypeScript 5.9 + Vite 7 app for designing outdoor living spaces. Dual-view editor: 2D grid canvas (HTML5 Canvas, imperative rendering) and 3D scene (Three.js via react-three-fiber). State managed by Zustand. Auth + DB + Storage via Supabase. Deployed to Vercel.
 
 ## Quick Reference
 - `npm run dev` — start dev server (run from `web/`)
@@ -11,19 +11,20 @@ React 19 + TypeScript 5.9 + Vite 7 app for designing outdoor living spaces. Dual
 ## Architecture Rules
 
 ### State Management
-- 4 Zustand stores: `designStore` (grid + objects), `uiStore` (tools/selection), `historyStore` (undo/redo), `authStore` (Firebase auth)
+- 4 Zustand stores: `designStore` (grid + objects), `uiStore` (tools/selection), `historyStore` (undo/redo), `authStore` (Supabase auth)
 - Grid is a flat `Uint8Array` (row-major). Mutate in place, increment `gridVersion` to trigger re-renders.
 - 2D canvas subscribes imperatively via `subscribeWithSelector` — never use React state for canvas rendering.
 - Always call `historyStore.pushSnapshot()` BEFORE any destructive action (paint, move, delete).
 
-### Authentication (Firebase)
-- Firebase Auth with email/password + Google social login
-- Auth state managed via `onAuthStateChanged` listener in `authStore.initialize()`
-- User documents stored in Firestore `users/{uid}` with `role` field ('user' | 'admin')
+### Authentication & Backend (Supabase)
+- Supabase Auth with email/password + Google OAuth (redirect flow)
+- Auth state managed via `supabase.auth.onAuthStateChange()` in `authStore.initialize()`
+- User profiles in `profiles` table with `role` field ('user' | 'admin'), auto-created via DB trigger
+- Templates in `templates` table with RLS policies (builtin readable by all, user templates by owner)
+- Image uploads to Supabase Storage `templates` and `widgets` buckets
 - `ProtectedRoute` guards authenticated routes, redirects unverified emails
 - `AdminGuard` checks `user.role === 'admin'` for admin-only routes
-- Firebase config in `src/lib/firebase.ts`, env vars in `.env.local` (VITE_FIREBASE_*)
-- Emulator support: set `VITE_USE_EMULATORS=true` in `.env.local`
+- Supabase client in `src/lib/supabase.ts`, env vars in `.env.local` (VITE_SUPABASE_*)
 
 ### Rendering
 - **2D Canvas** (`canvas2d/`): Pure functions in `gridRenderer.ts`, state machine in `canvasInteraction.ts`. Uses `requestAnimationFrame`.

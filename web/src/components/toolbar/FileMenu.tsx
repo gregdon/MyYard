@@ -25,7 +25,7 @@ export function FileMenu({ onNew, onSave, onLoad }: FileMenuProps) {
       <DropdownMenuContent>
         <DropdownMenuItem onClick={onNew}>
           <FilePlus className="mr-2 h-4 w-4" />
-          New Design
+          New Project
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onSave}>
           <Save className="mr-2 h-4 w-4" />

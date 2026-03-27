@@ -25,7 +25,7 @@ export function SaveDialog({ open, onOpenChange, onSave }: Props) {
   useEffect(() => {
     if (open) {
       const name = useDesignStore.getState().metadata.name
-      setFileName(name === 'Untitled Design' ? 'My Backyard' : name)
+      setFileName(name === 'Untitled Project' ? 'My Backyard' : name)
     }
   }, [open])
 
@@ -39,7 +39,7 @@ export function SaveDialog({ open, onOpenChange, onSave }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Save Design</DialogTitle>
+          <DialogTitle>Save Project</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">

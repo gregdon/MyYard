@@ -24,8 +24,14 @@ function ScreenshotBridge() {
 
 /** Capture a screenshot from the 3D canvas. Returns a data URL. */
 export function capture3DScreenshot(): Promise<string> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      window.removeEventListener('screenshot-result', handler)
+      reject(new Error('Screenshot capture timed out — is the 3D view active?'))
+    }, 3000)
+
     const handler = (e: Event) => {
+      clearTimeout(timeout)
       window.removeEventListener('screenshot-result', handler)
       resolve((e as CustomEvent).detail as string)
     }

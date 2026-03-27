@@ -31,6 +31,7 @@ interface UIState {
   sideNavWidth: number
   hasBeenSaved: boolean
   editingTemplateId: string | null
+  activeRibbonTab: string
 
   setViewMode: (mode: ViewMode) => void
   setActiveTool: (tool: ToolMode) => void
@@ -51,6 +52,7 @@ interface UIState {
   toggleSideNav: () => void
   setHasBeenSaved: (saved: boolean) => void
   setEditingTemplateId: (id: string | null) => void
+  setActiveRibbonTab: (tab: string) => void
 }
 
 export const useUIStore = create<UIState>()(subscribeWithSelector((set, get) => ({
@@ -70,6 +72,7 @@ export const useUIStore = create<UIState>()(subscribeWithSelector((set, get) => 
   sideNavWidth: 256,
   hasBeenSaved: false,
   editingTemplateId: null,
+  activeRibbonTab: 'home',
 
   setViewMode: (mode) => set({ viewMode: mode }),
   setActiveTool: (tool) => set({ activeTool: tool }),
@@ -97,6 +100,7 @@ export const useUIStore = create<UIState>()(subscribeWithSelector((set, get) => 
   toggleSideNav: () => set((s) => ({ sideNavCollapsed: !s.sideNavCollapsed })),
   setHasBeenSaved: (saved) => set({ hasBeenSaved: saved }),
   setEditingTemplateId: (id) => set({ editingTemplateId: id }),
+  setActiveRibbonTab: (tab) => set({ activeRibbonTab: tab }),
   copyObject: (obj) => set({
     clipboard: {
       type: obj.type,

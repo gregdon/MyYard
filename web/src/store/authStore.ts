@@ -1,19 +1,7 @@
 import { create } from 'zustand'
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  signInWithPopup,
-  GoogleAuthProvider,
-  sendEmailVerification,
-  sendPasswordResetEmail,
-  updateProfile,
-  onAuthStateChanged,
-  type User as FirebaseUser,
-} from 'firebase/auth'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
-import { auth, db } from '@/lib/firebase'
+import { supabase } from '@/lib/supabase'
 import type { User, UserRole } from '@/types/auth'
+import type { Session, User as SupabaseUser } from '@supabase/supabase-js'
 
 interface AuthState {
   user: User | null
@@ -32,42 +20,60 @@ interface AuthState {
   clearError: () => void
 }
 
-const googleProvider = new GoogleAuthProvider()
-
-/** Map a Firebase user + Firestore profile to our User type */
-async function mapFirebaseUser(fbUser: FirebaseUser): Promise<User> {
-  // Try to read role from Firestore user doc
+/** Map a Supabase user + profile to our User type */
+async function mapSupabaseUser(sbUser: SupabaseUser): Promise<User> {
   let role: UserRole = 'user'
   try {
-    const userDoc = await getDoc(doc(db, 'users', fbUser.uid))
-    if (userDoc.exists()) {
-      role = (userDoc.data().role as UserRole) || 'user'
+    // Race the profile query against a 2s timeout to avoid hangs
+    const profilePromise = supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', sbUser.id)
+      .single()
+    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000))
+    const result = await Promise.race([profilePromise, timeoutPromise])
+    if (result && 'data' in result && !result.error && result.data?.role) {
+      role = result.data.role as UserRole
     }
   } catch {
-    // Firestore may be unreachable; default to 'user'
+    // Profile may not exist yet; default to 'user'
   }
 
+  const meta = sbUser.user_metadata ?? {}
   return {
-    id: fbUser.uid,
-    email: fbUser.email ?? '',
-    name: fbUser.displayName ?? fbUser.email?.split('@')[0] ?? '',
+    id: sbUser.id,
+    email: sbUser.email ?? '',
+    name: meta.full_name ?? meta.name ?? sbUser.email?.split('@')[0] ?? '',
     role,
-    emailVerified: fbUser.emailVerified,
-    photoURL: fbUser.photoURL ?? undefined,
+    emailVerified: !!sbUser.email_confirmed_at,
+    photoURL: meta.avatar_url ?? meta.picture ?? undefined,
   }
 }
 
-/** Create or update user document in Firestore */
-async function ensureUserDoc(fbUser: FirebaseUser) {
-  const ref = doc(db, 'users', fbUser.uid)
-  const snap = await getDoc(ref)
-  if (!snap.exists()) {
-    await setDoc(ref, {
-      email: fbUser.email,
-      displayName: fbUser.displayName ?? fbUser.email?.split('@')[0] ?? '',
-      role: 'user',
-      createdAt: new Date().toISOString(),
-    })
+/** Handle session state - shared by getSession and onAuthStateChange */
+async function handleSession(session: Session | null, set: (state: Partial<AuthState>) => void) {
+  if (session?.user) {
+    try {
+      const user = await mapSupabaseUser(session.user)
+      set({ user, isAuthenticated: true, isLoading: false })
+    } catch {
+      // If profile fetch fails, still log in with defaults
+      const meta = session.user.user_metadata ?? {}
+      set({
+        user: {
+          id: session.user.id,
+          email: session.user.email ?? '',
+          name: meta.full_name ?? meta.name ?? session.user.email?.split('@')[0] ?? '',
+          role: 'user',
+          emailVerified: !!session.user.email_confirmed_at,
+          photoURL: meta.avatar_url ?? meta.picture ?? undefined,
+        },
+        isAuthenticated: true,
+        isLoading: false,
+      })
+    }
+  } else {
+    set({ user: null, isAuthenticated: false, isLoading: false })
   }
 }
 
@@ -78,21 +84,43 @@ export const useAuthStore = create<AuthState>()((set) => ({
   error: null,
 
   initialize: () => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      if (fbUser) {
-        const user = await mapFirebaseUser(fbUser)
-        set({ user, isAuthenticated: true, isLoading: false })
-      } else {
+    // Safety timeout — if auth hasn't resolved in 3s, stop loading
+    const timeout = setTimeout(() => {
+      const state = useAuthStore.getState()
+      if (state.isLoading) {
+        console.warn('Auth initialization timed out — falling back to unauthenticated')
         set({ user: null, isAuthenticated: false, isLoading: false })
       }
+    }, 3000)
+
+    // Listen for auth state changes (fires on sign in, sign out, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        clearTimeout(timeout)
+        await handleSession(session, set)
+      }
+    )
+
+    // Check existing session on load (fallback if onAuthStateChange doesn't fire)
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      clearTimeout(timeout)
+      await handleSession(session, set)
+    }).catch(() => {
+      clearTimeout(timeout)
+      set({ user: null, isAuthenticated: false, isLoading: false })
     })
-    return unsubscribe
+
+    return () => {
+      clearTimeout(timeout)
+      subscription.unsubscribe()
+    }
   },
 
   loginWithEmail: async (email, password) => {
     set({ error: null, isLoading: true })
     try {
-      await signInWithEmailAndPassword(auth, email, password)
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) throw error
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Login failed'
       set({ error: message, isLoading: false })
@@ -103,8 +131,14 @@ export const useAuthStore = create<AuthState>()((set) => ({
   loginWithGoogle: async () => {
     set({ error: null, isLoading: true })
     try {
-      const result = await signInWithPopup(auth, googleProvider)
-      await ensureUserDoc(result.user)
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+        },
+      })
+      if (error) throw error
+      // Redirect flow - page will reload, onAuthStateChange picks up the session
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Google login failed'
       set({ error: message, isLoading: false })
@@ -115,10 +149,15 @@ export const useAuthStore = create<AuthState>()((set) => ({
   register: async (name, email, password) => {
     set({ error: null, isLoading: true })
     try {
-      const cred = await createUserWithEmailAndPassword(auth, email, password)
-      await updateProfile(cred.user, { displayName: name })
-      await ensureUserDoc(cred.user)
-      await sendEmailVerification(cred.user)
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: name },
+        },
+      })
+      if (error) throw error
+      // Supabase auto-sends verification email
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Registration failed'
       set({ error: message, isLoading: false })
@@ -127,13 +166,16 @@ export const useAuthStore = create<AuthState>()((set) => ({
   },
 
   logout: async () => {
-    await signOut(auth)
+    await supabase.auth.signOut()
   },
 
   resetPassword: async (email) => {
     set({ error: null })
     try {
-      await sendPasswordResetEmail(auth, email)
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/login`,
+      })
+      if (error) throw error
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Password reset failed'
       set({ error: message })
@@ -142,9 +184,13 @@ export const useAuthStore = create<AuthState>()((set) => ({
   },
 
   resendVerification: async () => {
-    const fbUser = auth.currentUser
-    if (fbUser && !fbUser.emailVerified) {
-      await sendEmailVerification(fbUser)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user && !user.email_confirmed_at && user.email) {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: user.email,
+      })
+      if (error) throw error
     }
   },
 

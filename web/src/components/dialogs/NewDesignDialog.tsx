@@ -40,12 +40,12 @@ export function NewDesignDialog({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>New Design</DialogTitle>
+          <DialogTitle>New Project</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label>Design Name</Label>
+            <Label>Name</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </div>
 
@@ -76,11 +76,13 @@ export function NewDesignDialog({ open, onOpenChange }: Props) {
             <Label>Grid Increment</Label>
             <ToggleGroup
               type="single"
+              variant="outline"
               value={increment}
               onValueChange={(v) => { if (v) setIncrement(v as GridIncrement) }}
             >
               <ToggleGroupItem value="1ft" className="flex-1">1 foot</ToggleGroupItem>
               <ToggleGroupItem value="6in" className="flex-1">6 inches</ToggleGroupItem>
+              <ToggleGroupItem value="3in" className="flex-1">3 inches</ToggleGroupItem>
             </ToggleGroup>
           </div>
         </div>

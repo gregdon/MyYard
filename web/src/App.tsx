@@ -1,12 +1,13 @@
 import { useEffect } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from 'sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { GlobalDialogs } from '@/components/layout/GlobalDialogs'
 import { AppShell } from '@/components/layout/AppShell'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { LoginPage } from '@/components/auth/LoginPage'
 import { RegisterPage } from '@/components/auth/RegisterPage'
 import { VerifyEmailPage } from '@/components/auth/VerifyEmailPage'
-import { DashboardPage } from '@/components/pages/DashboardPage'
 import { EditorPage } from '@/components/pages/EditorPage'
 import { useAuthStore } from '@/store/authStore'
 import { useTemplateStore } from '@/store/templateStore'
@@ -29,6 +30,8 @@ function App() {
   return (
     <BrowserRouter>
       <TooltipProvider>
+        <Toaster position="bottom-right" richColors closeButton />
+        <GlobalDialogs />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
@@ -40,7 +43,7 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="/" element={<DashboardPage />} />
+            <Route path="/" element={<Navigate to="/editor" replace />} />
             <Route path="/editor/:id?" element={<EditorPage />} />
           </Route>
         </Routes>

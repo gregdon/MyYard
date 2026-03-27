@@ -3,8 +3,10 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { ToolSelector } from '@/components/sidebar/ToolSelector'
 import { WidgetPalette } from '@/components/sidebar/WidgetPalette'
 import { TemplateGallery } from '@/components/sidebar/TemplateGallery'
-import { Paintbrush, Box, Library } from 'lucide-react'
+import { StartSidebar } from '@/components/sidebar/StartSidebar'
+import { Paintbrush, Box, Library, Clock, Megaphone } from 'lucide-react'
 import { useUIStore } from '@/store/uiStore'
+import { useTabStore } from '@/store/tabStore'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
@@ -18,7 +20,36 @@ const TABS: { id: SideTab; label: string; icon: typeof Paintbrush }[] = [
 
 export function SideNav() {
   const collapsed = useUIStore((s) => s.sideNavCollapsed)
+  const activeDocTab = useTabStore((s) => s.getActiveTab())
   const [activeTab, setActiveTab] = useState<SideTab>('widgets')
+  const isStartTab = activeDocTab?.type === 'start'
+
+  // Start tab: show StartSidebar
+  if (isStartTab) {
+    if (collapsed) {
+      return (
+        <div className="flex h-full flex-col items-center gap-1 bg-card pt-2 px-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent cursor-pointer">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Recent Documents</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent cursor-pointer">
+                <Megaphone className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Announcements</TooltipContent>
+          </Tooltip>
+        </div>
+      )
+    }
+    return <StartSidebar />
+  }
 
   // Collapsed: icon strip with flyout popovers
   if (collapsed) {
