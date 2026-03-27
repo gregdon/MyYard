@@ -4,7 +4,7 @@ import { useDesignStore } from '@/store/designStore'
 import { useUIStore } from '@/store/uiStore'
 import { useTabStore } from '@/store/tabStore'
 import { parseDesignFile } from '@/utils/schemaValidator'
-import type { DesignFile } from '@/types'
+import type { DesignFile } from '@/types/schema'
 
 export function useDesignIO() {
   /** Download the design file to disk */
