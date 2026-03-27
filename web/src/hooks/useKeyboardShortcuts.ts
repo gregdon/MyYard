@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useUIStore } from '@/store/uiStore'
 import { useDesignStore } from '@/store/designStore'
 import { useHistoryStore } from '@/store/historyStore'
+import { useTabStore } from '@/store/tabStore'
 import { useDesignIO } from './useDesignIO'
 import { ToolMode } from '@/types/tools'
 import { cellSizeFt } from '@/utils/gridHelpers'
@@ -86,6 +87,17 @@ export function useKeyboardShortcuts() {
           })
           useUIStore.getState().setSelectedObjectId(newId)
           useUIStore.getState().setStatusMessage('Pasted ' + clip.type)
+        }
+        return
+      }
+
+      // Close tab (Ctrl+W)
+      if (ctrl && e.key === 'w') {
+        e.preventDefault()
+        const tabState = useTabStore.getState()
+        const active = tabState.getActiveTab()
+        if (active) {
+          tabState.closeTab(active.id)
         }
         return
       }

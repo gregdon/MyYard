@@ -5,7 +5,15 @@ import type { PlacedObject3D } from '@/types/design'
 import { PlanterFill } from './helpers'
 
 // Map our species to ez-tree presets and leaf tint overrides
-export const SPECIES_TO_PRESET: Record<string, { preset: string; leafTint?: number; barkTint?: number }> = {
+// Optional `tweak` callback applies species-specific adjustments after preset loads
+type SpeciesMapping = {
+  preset: string
+  leafTint?: number
+  barkTint?: number
+  tweak?: (opts: any) => void
+}
+
+export const SPECIES_TO_PRESET: Record<string, SpeciesMapping> = {
   generic:         { preset: 'Oak Medium' },
   oak:             { preset: 'Oak Medium' },
   birch:           { preset: 'Aspen Medium', barkTint: 0xd4cfc4 },
@@ -14,7 +22,33 @@ export const SPECIES_TO_PRESET: Record<string, { preset: string; leafTint?: numb
   japanese_maple:  { preset: 'Oak Small', leafTint: 0x9b1b30 },
   crepe_myrtle:    { preset: 'Aspen Small', leafTint: 0xc75080 },
   holly:           { preset: 'Pine Small', leafTint: 0x1a4d1a },
-  magnolia:        { preset: 'Oak Medium', leafTint: 0x2e6b2e },
+  magnolia: {
+    preset: 'Oak Medium',
+    leafTint: 0x4a8f4a,   // bright natural green
+    barkTint: 0xb0a898,   // smooth gray-brown bark
+    tweak: (opts: any) => {
+      // Pyramidal/columnar shape — steep upright angles, branches from low on trunk
+      opts.branch.angle[1] = 35        // upright branch angle (oak default: 54)
+      opts.branch.angle[2] = 30
+      opts.branch.angle[3] = 28
+      opts.branch.start[1] = 0.15      // branches start low but not at ground (oak: 0.49)
+      opts.branch.start[2] = 0.1
+      opts.branch.start[3] = 0.15
+      opts.branch.children[0] = 7      // slightly more than oak (6) but not overstuffed
+      opts.branch.children[1] = 4
+      opts.branch.children[2] = 3
+      opts.branch.length[1] = 8        // shorter branches = tighter columnar shape (oak: 11)
+      opts.branch.length[2] = 9
+      opts.branch.gnarliness[0] = 0.02 // straight trunk
+      opts.branch.gnarliness[1] = 0.03
+      opts.branch.force.strength = 0.02 // upward growth tendency (oak: -0.01)
+      // Moderate foliage — visible but not a solid mass
+      opts.leaves.count = 14           // thinner than oak default (18)
+      opts.leaves.size = 2.8           // slightly larger leaves
+      opts.leaves.sizeVariance = 0.5
+      opts.leaves.start = 0.15         // leaves start slightly along branches
+    },
+  },
   dogwood:         { preset: 'Aspen Small', leafTint: 0xe8a0b8 },
   weeping_willow:  { preset: 'Ash Large', leafTint: 0x6b8a3a },
   palm:            { preset: 'Ash Small', leafTint: 0x2d5a27 },
@@ -53,6 +87,11 @@ export function EzTreeMesh({ obj }: { obj: PlacedObject3D }) {
 
     if (mapping.barkTint !== undefined) {
       t.options.bark.tint = mapping.barkTint
+    }
+
+    // Apply species-specific structural tweaks
+    if (mapping.tweak) {
+      mapping.tweak(t.options)
     }
 
     t.generate()

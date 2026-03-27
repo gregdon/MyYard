@@ -1,8 +1,10 @@
 import { useCallback } from 'react'
+import { toast } from 'sonner'
 import { useDesignStore } from '@/store/designStore'
-import { useHistoryStore } from '@/store/historyStore'
 import { useUIStore } from '@/store/uiStore'
+import { useTabStore } from '@/store/tabStore'
 import { parseDesignFile } from '@/utils/schemaValidator'
+import type { DesignFile } from '@/types'
 
 export function useDesignIO() {
   /** Download the design file to disk */
@@ -26,8 +28,7 @@ export function useDesignIO() {
     URL.revokeObjectURL(url)
 
     useUIStore.getState().setHasBeenSaved(true)
-    useUIStore.getState().setStatusMessage('Design saved')
-    setTimeout(() => useUIStore.getState().setStatusMessage(''), 3000)
+    toast.success('Project saved')
   }, [])
 
   /** Save — if never saved before, returns false so caller can show dialog */
@@ -45,6 +46,7 @@ export function useDesignIO() {
     downloadDesign(fileName)
   }, [downloadDesign])
 
+  /** Parse a design file and open it in a new tab */
   const loadDesign = useCallback((file: File) => {
     const reader = new FileReader()
     reader.onload = () => {
@@ -52,19 +54,23 @@ export function useDesignIO() {
       const { file: designFile, errors } = parseDesignFile(text)
 
       if (!designFile) {
-        useUIStore.getState().setStatusMessage(`Load failed: ${errors[0]}`)
-        setTimeout(() => useUIStore.getState().setStatusMessage(''), 5000)
+        toast.error(`Failed to load design: ${errors[0]}`)
         return
       }
 
-      useHistoryStore.getState().clear()
-      useDesignStore.getState().loadDesign(designFile)
-      useUIStore.getState().setHasBeenSaved(true) // loaded file counts as saved
-      useUIStore.getState().setStatusMessage(`Loaded: ${designFile.metadata.name}`)
-      setTimeout(() => useUIStore.getState().setStatusMessage(''), 3000)
+      openDesignFile(designFile)
     }
     reader.readAsText(file)
   }, [])
 
-  return { saveDesign, saveAsDesign, downloadDesign, loadDesign }
+  /** Open a parsed DesignFile in a new tab */
+  const openDesignFile = useCallback((designFile: DesignFile) => {
+    const before = useTabStore.getState().tabs.length
+    useTabStore.getState().openDesignTab(designFile)
+    const after = useTabStore.getState().tabs.length
+    console.warn(`[useDesignIO] openDesignFile tabs: ${before} -> ${after}, activeTabId: ${useTabStore.getState().activeTabId}`)
+    toast.success(`Loaded: ${designFile.metadata.name}`)
+  }, [])
+
+  return { saveDesign, saveAsDesign, downloadDesign, loadDesign, openDesignFile }
 }

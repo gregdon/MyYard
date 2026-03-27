@@ -44,7 +44,7 @@ export function EditorToolbar({ onNew, onSave, onSaveAs, onLoad, onSaveTemplate,
             <FilePlus className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>New Design</TooltipContent>
+        <TooltipContent>New Project</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>

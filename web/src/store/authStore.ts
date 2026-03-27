@@ -24,13 +24,16 @@ interface AuthState {
 async function mapSupabaseUser(sbUser: SupabaseUser): Promise<User> {
   let role: UserRole = 'user'
   try {
-    const { data, error } = await supabase
+    // Race the profile query against a 2s timeout to avoid hangs
+    const profilePromise = supabase
       .from('profiles')
       .select('role')
       .eq('id', sbUser.id)
       .single()
-    if (!error && data?.role) {
-      role = data.role as UserRole
+    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000))
+    const result = await Promise.race([profilePromise, timeoutPromise])
+    if (result && 'data' in result && !result.error && result.data?.role) {
+      role = result.data.role as UserRole
     }
   } catch {
     // Profile may not exist yet; default to 'user'
@@ -81,21 +84,36 @@ export const useAuthStore = create<AuthState>()((set) => ({
   error: null,
 
   initialize: () => {
+    // Safety timeout — if auth hasn't resolved in 3s, stop loading
+    const timeout = setTimeout(() => {
+      const state = useAuthStore.getState()
+      if (state.isLoading) {
+        console.warn('Auth initialization timed out — falling back to unauthenticated')
+        set({ user: null, isAuthenticated: false, isLoading: false })
+      }
+    }, 3000)
+
     // Listen for auth state changes (fires on sign in, sign out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
+        clearTimeout(timeout)
         await handleSession(session, set)
       }
     )
 
     // Check existing session on load (fallback if onAuthStateChange doesn't fire)
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      clearTimeout(timeout)
       await handleSession(session, set)
     }).catch(() => {
+      clearTimeout(timeout)
       set({ user: null, isAuthenticated: false, isLoading: false })
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      clearTimeout(timeout)
+      subscription.unsubscribe()
+    }
   },
 
   loginWithEmail: async (email, password) => {

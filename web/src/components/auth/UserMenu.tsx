@@ -42,7 +42,7 @@ export function UserMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => navigate('/')}>
           <LayoutDashboard className="mr-2 h-4 w-4" />
-          My Designs
+          My Projects
         </DropdownMenuItem>
         <DropdownMenuItem>
           <Settings className="mr-2 h-4 w-4" />

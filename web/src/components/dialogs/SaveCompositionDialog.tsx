@@ -26,10 +26,12 @@ import {
   SelectItem,
 } from '@/components/ui/select'
 import { Camera, ImagePlus, Star, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSaved?: () => void
 }
 
 const CATEGORY_OPTIONS = [
@@ -40,7 +42,7 @@ const CATEGORY_OPTIONS = [
   { value: 'full-patio', label: 'Full Patio' },
 ]
 
-export function SaveCompositionDialog({ open, onOpenChange }: Props) {
+export function SaveCompositionDialog({ open, onOpenChange, onSaved }: Props) {
   const placedObjects = useDesignStore((s) => s.placedObjects)
   const selectedObjectId = useUIStore((s) => s.selectedObjectId)
   const selectedObjectIds = useUIStore((s) => s.selectedObjectIds)
@@ -193,8 +195,10 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
       await saveTemplate(template, user.id)
       setEditingTemplateId(null)
       onOpenChange(false)
-    } catch {
-      // Could add error toast here
+      toast.success('Template saved')
+      onSaved?.()
+    } catch (err) {
+      toast.error('Failed to save template')
     } finally {
       setSaving(false)
     }
@@ -204,7 +208,7 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{editingTemplateId ? 'Update Template' : 'Save as Template'}</DialogTitle>
+          <DialogTitle>{editingTemplateId ? 'Save Template' : 'Save as Template'}</DialogTitle>
           <DialogDescription>
             Saving {objectCount} {objectCount === 1 ? 'object' : 'objects'} as{' '}
             {compositionType}
@@ -344,7 +348,7 @@ export function SaveCompositionDialog({ open, onOpenChange }: Props) {
             onClick={handleSave}
             disabled={!name.trim() || objectCount === 0 || saving}
           >
-            {saving ? 'Saving...' : editingTemplateId ? 'Update' : 'Save'}
+            {saving ? 'Saving...' : 'Save'}
           </Button>
         </DialogFooter>
       </DialogContent>

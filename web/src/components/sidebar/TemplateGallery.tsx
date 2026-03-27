@@ -1,9 +1,8 @@
 import { useState, useMemo } from 'react'
+import { toast } from 'sonner'
 import { useTemplateStore } from '@/store/templateStore'
-import { useUIStore } from '@/store/uiStore'
-import { useDesignStore } from '@/store/designStore'
-import { useHistoryStore } from '@/store/historyStore'
 import { useAuthStore } from '@/store/authStore'
+import { useTabStore } from '@/store/tabStore'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -112,33 +111,31 @@ export function TemplateGallery() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
 
   const handleEdit = (template: Template) => {
-    // Place template objects on canvas for editing, track template ID
-    useHistoryStore.getState().pushSnapshot()
-    const ds = useDesignStore.getState()
+    // Open template in a dedicated editing tab
+    let objects: import('@/types/design').PlacedObject3D[]
 
     if (template.kind === 'preset') {
       const preset = template as WidgetPreset
       const obj = createFromPreset(preset, [5, 0, 5])
-      ds.addPlacedObject(obj)
-      useUIStore.getState().setSelectedObjectId(obj.id)
+      objects = [obj]
     } else {
       const assembly = template as WidgetAssembly
-      const objects = createFromAssembly(assembly, [10, 0, 10])
-      const ids: string[] = []
-      for (const obj of objects) {
-        ds.addPlacedObject(obj)
-        ids.push(obj.id)
-      }
-      useUIStore.getState().setSelectedObjectIds(ids)
+      objects = createFromAssembly(assembly, [10, 0, 10])
     }
-    useUIStore.getState().setEditingTemplateId(template.id)
+
+    useTabStore.getState().openTemplateEditTab(template.id, objects, template.name)
   }
 
   const handleDelete = async (template: Template) => {
     if (!user) return
     const isBuiltin = template.visibility === 'builtin'
     if (!isBuiltin || user.role === 'admin') {
-      await deleteTemplate(template.id, user.id, isBuiltin)
+      try {
+        await deleteTemplate(template.id, user.id, isBuiltin)
+        toast.success('Template deleted')
+      } catch {
+        toast.error('Failed to delete template')
+      }
     }
   }
 

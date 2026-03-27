@@ -9,14 +9,14 @@ export function DashboardPage() {
     <div className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
       <TreePine className="h-16 w-16 text-primary/30" />
       <div className="text-center">
-        <h2 className="text-2xl font-bold">My Designs</h2>
+        <h2 className="text-2xl font-bold">My Projects</h2>
         <p className="mt-1 text-muted-foreground">
-          Create and manage your outdoor living designs
+          Create and manage your outdoor living projects
         </p>
       </div>
       <Button onClick={() => navigate('/editor')} size="lg" className="gap-2">
         <Plus className="h-5 w-5" />
-        New Design
+        New Project
       </Button>
     </div>
   )

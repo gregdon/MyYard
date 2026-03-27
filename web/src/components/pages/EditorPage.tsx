@@ -1,12 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { toast } from 'sonner'
 import { useUIStore } from '@/store/uiStore'
 import { useDesignStore } from '@/store/designStore'
+import { useTabStore } from '@/store/tabStore'
 import { useDesignIO } from '@/hooks/useDesignIO'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { SideNav } from '@/components/layout/SideNav'
-import { EditorToolbar } from '@/components/toolbar/EditorToolbar'
+import { DocumentTabBar } from '@/components/layout/DocumentTabBar'
+import { RibbonBar } from '@/components/ribbon/RibbonBar'
 import { Canvas2DView } from '@/components/canvas2d/Canvas2DView'
 import { Scene3DView } from '@/components/scene3d/Scene3DView'
+import { StartTabContent } from '@/components/tabs/StartTabContent'
 import { NewDesignDialog } from '@/components/dialogs/NewDesignDialog'
 import { LoadDialog } from '@/components/dialogs/LoadDialog'
 import { SaveDialog } from '@/components/dialogs/SaveDialog'
@@ -25,12 +29,27 @@ export function EditorPage() {
   const setSideNavWidth = useUIStore((s) => s.setSideNavWidth)
   const resizingRef = useRef(false)
 
+  const activeTab = useTabStore((s) => s.getActiveTab())
+  const openStartTab = useTabStore((s) => s.openStartTab)
+  const openDesignTab = useTabStore((s) => s.openDesignTab)
+  const closeTab = useTabStore((s) => s.closeTab)
+  const tabs = useTabStore((s) => s.tabs)
+
   const { saveDesign, saveAsDesign } = useDesignIO()
   useKeyboardShortcuts()
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [showLoadDialog, setShowLoadDialog] = useState(false)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false)
+  const [closeTabAfterTemplateSave, setCloseTabAfterTemplateSave] = useState(false)
+
+  // Initialize tabs on first render
+  useEffect(() => {
+    if (tabs.length === 0) {
+      openStartTab()
+      openDesignTab()
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = useCallback(() => {
     const saved = saveDesign()
@@ -39,6 +58,26 @@ export function EditorPage() {
 
   const handleSaveAs = useCallback(() => {
     setShowSaveDialog(true)
+  }, [])
+
+  // Template editing handlers
+  const handleTemplateCancel = useCallback(() => {
+    if (!activeTab || activeTab.type !== 'template-edit') return
+    // Restore clean snapshot if available, then close tab
+    if (activeTab.cleanSnapshot) {
+      useDesignStore.getState().restoreSnapshot(activeTab.cleanSnapshot)
+    }
+    closeTab(activeTab.id)
+  }, [activeTab, closeTab])
+
+  const handleTemplateSave = useCallback(() => {
+    // Open the save composition dialog for template update
+    setShowSaveTemplateDialog(true)
+  }, [])
+
+  const handleTemplateSaveAndClose = useCallback(() => {
+    setCloseTabAfterTemplateSave(true)
+    setShowSaveTemplateDialog(true)
   }, [])
 
   const handleSaveDialogConfirm = useCallback((fileName: string) => {
@@ -88,22 +127,31 @@ export function EditorPage() {
     return () => mq.removeEventListener('change', handleChange)
   }, [setSideNavCollapsed])
 
+  const isCanvasTab = activeTab?.type === 'design' || activeTab?.type === 'template-edit'
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <EditorToolbar
-        onNew={() => setShowNewDialog(true)}
+      {/* Ribbon — always visible */}
+      <RibbonBar
         onSave={handleSave}
         onSaveAs={handleSaveAs}
         onLoad={() => setShowLoadDialog(true)}
+        onNewDesign={() => setShowNewDialog(true)}
+        onNewTemplate={() => {
+          useTabStore.getState().openNewTemplateTab()
+        }}
         onSaveTemplate={() => setShowSaveTemplateDialog(true)}
-        onUpdateTemplate={() => setShowSaveTemplateDialog(true)}
+        onTemplateCancel={handleTemplateCancel}
+        onTemplateSave={handleTemplateSave}
+        onTemplateSaveAndClose={handleTemplateSaveAndClose}
       />
 
+      {/* Main content area — sidebar always visible */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <div
           className="shrink-0 overflow-hidden border-r"
-          style={{ width: sideNavCollapsed ? 48 : sideNavWidth }}
+          style={{ width: sideNavCollapsed ? 41 : sideNavWidth }}
         >
           <SideNav />
         </div>
@@ -116,27 +164,37 @@ export function EditorPage() {
           />
         )}
 
-        {/* Canvas area */}
-        <div className="relative flex-1 overflow-hidden">
-          {/* 2D Canvas */}
-          <div
-            className="absolute inset-0"
-            style={{ display: viewMode === '2d' ? 'block' : 'none' }}
-          >
-            <Canvas2DView />
-          </div>
+        {/* Content column: tab bar + active content */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {/* Document tab bar — right of sidebar */}
+          <DocumentTabBar />
 
-          {/* 3D Scene */}
-          <div
-            className="absolute inset-0"
-            style={{ display: viewMode === '3d' ? 'block' : 'none' }}
-          >
-            <Scene3DView />
-          </div>
+          {/* Tab content */}
+          {activeTab?.type === 'start' ? (
+            <StartTabContent />
+          ) : isCanvasTab ? (
+            <div className="relative flex-1 overflow-hidden">
+              {/* 2D Canvas */}
+              <div
+                className="absolute inset-0"
+                style={{ display: viewMode === '2d' ? 'block' : 'none' }}
+              >
+                <Canvas2DView />
+              </div>
+
+              {/* 3D Scene */}
+              <div
+                className="absolute inset-0"
+                style={{ display: viewMode === '3d' ? 'block' : 'none' }}
+              >
+                <Scene3DView />
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {/* Right properties panel — shows when objects exist */}
-        {placedObjects.length > 0 && (
+        {isCanvasTab && placedObjects.length > 0 && (
           <div className="flex h-full w-[280px] shrink-0 flex-col overflow-hidden border-l bg-card">
             <div className="border-b px-3 py-2 text-sm font-semibold">Properties</div>
             <ScrollArea className="min-h-0 flex-1">
@@ -151,7 +209,16 @@ export function EditorPage() {
       <NewDesignDialog open={showNewDialog} onOpenChange={setShowNewDialog} />
       <LoadDialog open={showLoadDialog} onOpenChange={setShowLoadDialog} />
       <SaveDialog open={showSaveDialog} onOpenChange={setShowSaveDialog} onSave={handleSaveDialogConfirm} />
-      <SaveCompositionDialog open={showSaveTemplateDialog} onOpenChange={setShowSaveTemplateDialog} />
+      <SaveCompositionDialog
+        open={showSaveTemplateDialog}
+        onOpenChange={setShowSaveTemplateDialog}
+        onSaved={() => {
+          if (closeTabAfterTemplateSave && activeTab) {
+            closeTab(activeTab.id)
+            setCloseTabAfterTemplateSave(false)
+          }
+        }}
+      />
     </div>
   )
 }
