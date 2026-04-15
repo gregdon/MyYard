@@ -40,7 +40,7 @@ export function NewDesignDialog({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>New Project</DialogTitle>
+          <DialogTitle>New Design</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">

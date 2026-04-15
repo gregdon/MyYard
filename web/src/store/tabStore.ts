@@ -39,6 +39,8 @@ export interface TabDescriptor {
   // Template editing
   templateId?: string
   cleanSnapshot?: DesignSnapshot
+  // Cloud persistence
+  cloudDesignId?: string
 }
 
 interface TabState {
@@ -56,6 +58,7 @@ interface TabState {
   // State management
   setTabDirty: (tabId: string, dirty: boolean) => void
   setTabTitle: (tabId: string, title: string) => void
+  setTabCloudDesignId: (tabId: string, cloudDesignId: string) => void
   getActiveTab: () => TabDescriptor | null
   markActiveSaved: () => void
 }
@@ -198,7 +201,7 @@ export const useTabStore = create<TabState>()(subscribeWithSelector((set, get) =
     if (designFile) {
       useDesignStore.getState().loadDesign(designFile)
     } else {
-      useDesignStore.getState().newDesign(DEFAULT_GRID_SETTINGS, title ?? 'Untitled Project')
+      useDesignStore.getState().newDesign(DEFAULT_GRID_SETTINGS, title ?? 'Untitled Design')
     }
     useHistoryStore.getState().clear()
     restoreUISnapshot(DEFAULT_PER_TAB_UI)
@@ -206,7 +209,7 @@ export const useTabStore = create<TabState>()(subscribeWithSelector((set, get) =
     const tab: TabDescriptor = {
       id,
       type: 'design',
-      title: title ?? designFile?.metadata?.name ?? 'Untitled Project',
+      title: title ?? designFile?.metadata?.name ?? 'Untitled Design',
       isDirty: false,
       // Active tab: state lives in live stores
       designSnapshot: null,
@@ -395,6 +398,12 @@ export const useTabStore = create<TabState>()(subscribeWithSelector((set, get) =
   setTabTitle: (tabId, title) => {
     set(state => ({
       tabs: state.tabs.map(t => t.id === tabId ? { ...t, title } : t),
+    }))
+  },
+
+  setTabCloudDesignId: (tabId, cloudDesignId) => {
+    set(state => ({
+      tabs: state.tabs.map(t => t.id === tabId ? { ...t, cloudDesignId } : t),
     }))
   },
 
