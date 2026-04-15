@@ -25,8 +25,8 @@ interface MenuTabDef {
 
 interface RibbonBarProps {
   onSave: () => void
-  onSaveAs: () => void
-  onLoad: () => void
+  onExport: () => void
+  onImport: () => void
   onNewDesign: () => void
   onNewTemplate: () => void
   onSaveTemplate?: () => void
@@ -39,8 +39,8 @@ interface RibbonBarProps {
 
 export function RibbonBar({
   onSave,
-  onSaveAs,
-  onLoad,
+  onExport,
+  onImport,
   onNewDesign,
   onNewTemplate,
   onSaveTemplate,
@@ -77,7 +77,7 @@ export function RibbonBar({
     { id: 'view', label: 'View' },
   ]
   if (isDesignTab) {
-    menuTabs.push({ id: 'design', label: 'Project', contextual: true })
+    menuTabs.push({ id: 'design', label: 'Design', contextual: true })
   }
   if (isTemplateTab) {
     menuTabs.push({ id: 'template', label: 'Template', contextual: true })
@@ -121,7 +121,7 @@ export function RibbonBar({
 
         {/* Tab-specific commands */}
         {activeRibbonTab === 'file' && (
-          <RibbonFileTab onSave={onSave} onSaveAs={onSaveAs} onLoad={onLoad} />
+          <RibbonFileTab onSave={onSave} onExport={onExport} onImport={onImport} />
         )}
         {activeRibbonTab === 'home' && (
           <RibbonHomeTab onNewDesign={onNewDesign} onNewTemplate={onNewTemplate} />

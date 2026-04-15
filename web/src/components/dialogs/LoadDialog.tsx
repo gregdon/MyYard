@@ -30,22 +30,13 @@ export function LoadDialog({ open, onOpenChange }: Props) {
       const { file: designFile, errors } = parseDesignFile(text)
 
       if (!designFile) {
-        toast.error(`Failed to load project: ${errors[0]}`)
+        toast.error(`Failed to import: ${errors[0]}`)
         return
       }
 
-      console.warn('[LoadDialog] parsed file:', designFile.metadata.name)
-
-      // Close dialog
       onOpenChange(false)
-
-      // Create tab with loaded design
-      const tabsBefore = useTabStore.getState().tabs.length
       openDesignTab(designFile)
-      const tabsAfter = useTabStore.getState().tabs.length
-      console.warn(`[LoadDialog] tabs: ${tabsBefore} -> ${tabsAfter}`)
-
-      toast.success(`Loaded: ${designFile.metadata.name}`)
+      toast.success(`Imported: ${designFile.metadata.name}`)
     }
     reader.readAsText(file)
   }
@@ -54,13 +45,13 @@ export function LoadDialog({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Open Project</DialogTitle>
+          <DialogTitle>Import Design</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col items-center gap-4 py-6">
           <Upload className="h-10 w-10 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            Select a .json project file to open
+            Select a .json design file to import
           </p>
           <input
             ref={fileRef}

@@ -50,7 +50,7 @@ const { grid: initialGrid, rows: initialRows, cols: initialCols } = createInitia
 export const useDesignStore = create<DesignState>()(
   subscribeWithSelector((set, get) => ({
     metadata: {
-      name: 'Untitled Project',
+      name: 'Untitled Design',
       createdAt: new Date().toISOString(),
       lastModifiedAt: new Date().toISOString(),
       schemaVersion: 1,
@@ -63,7 +63,7 @@ export const useDesignStore = create<DesignState>()(
     placedObjects: [],
     gridVersion: 0,
 
-    newDesign: (settings, name = 'Untitled Project') => {
+    newDesign: (settings, name = 'Untitled Design') => {
       const { rows, cols } = gridDimensions(settings)
       const grid = createEmptyGrid(rows, cols)
       set({

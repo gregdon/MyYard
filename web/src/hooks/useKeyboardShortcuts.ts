@@ -42,8 +42,9 @@ export function useKeyboardShortcuts() {
       // Save (Ctrl+S)
       if (ctrl && e.key === 's') {
         e.preventDefault()
-        const saved = saveDesign()
-        if (!saved) window.dispatchEvent(new Event('save-as'))
+        saveDesign().then(saved => {
+          if (!saved) window.dispatchEvent(new Event('save-as'))
+        })
         return
       }
 

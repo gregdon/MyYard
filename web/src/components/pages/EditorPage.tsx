@@ -34,15 +34,15 @@ export function EditorPage() {
   const closeTab = useTabStore((s) => s.closeTab)
   const tabs = useTabStore((s) => s.tabs)
 
-  const { saveDesign, saveAsDesign } = useDesignIO()
+  const { saveDesign, saveToCloud, exportDesign } = useDesignIO()
   useKeyboardShortcuts()
   const [showNewDialog, setShowNewDialog] = useState(false)
-  const [showLoadDialog, setShowLoadDialog] = useState(false)
+  const [showImportDialog, setShowImportDialog] = useState(false)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false)
   const [closeTabAfterTemplateSave, setCloseTabAfterTemplateSave] = useState(false)
 
-  // Initialize tabs on first render — Start tab + empty project
+  // Initialize tabs on first render — Start tab + empty design
   const initialized = useRef(false)
   useEffect(() => {
     if (!initialized.current && tabs.length === 0) {
@@ -52,19 +52,22 @@ export function EditorPage() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSave = useCallback(() => {
-    const saved = saveDesign()
+  const handleSave = useCallback(async () => {
+    const saved = await saveDesign()
     if (!saved) setShowSaveDialog(true)
   }, [saveDesign])
 
-  const handleSaveAs = useCallback(() => {
-    setShowSaveDialog(true)
-  }, [])
+  const handleSaveDialogConfirm = useCallback(async (name: string, description: string) => {
+    await saveToCloud(name, description)
+  }, [saveToCloud])
+
+  const handleExport = useCallback(() => {
+    exportDesign()
+  }, [exportDesign])
 
   // Template editing handlers
   const handleTemplateCancel = useCallback(() => {
     if (!activeTab || activeTab.type !== 'template-edit') return
-    // Restore clean snapshot if available, then close tab
     if (activeTab.cleanSnapshot) {
       useDesignStore.getState().restoreSnapshot(activeTab.cleanSnapshot)
     }
@@ -72,7 +75,6 @@ export function EditorPage() {
   }, [activeTab, closeTab])
 
   const handleTemplateSave = useCallback(() => {
-    // Open the save composition dialog for template update
     setShowSaveTemplateDialog(true)
   }, [])
 
@@ -80,10 +82,6 @@ export function EditorPage() {
     setCloseTabAfterTemplateSave(true)
     setShowSaveTemplateDialog(true)
   }, [])
-
-  const handleSaveDialogConfirm = useCallback((fileName: string) => {
-    saveAsDesign(fileName)
-  }, [saveAsDesign])
 
   // Listen for save-as event from keyboard shortcuts
   useEffect(() => {
@@ -135,8 +133,8 @@ export function EditorPage() {
       {/* Ribbon — always visible */}
       <RibbonBar
         onSave={handleSave}
-        onSaveAs={handleSaveAs}
-        onLoad={() => setShowLoadDialog(true)}
+        onExport={handleExport}
+        onImport={() => setShowImportDialog(true)}
         onNewDesign={() => setShowNewDialog(true)}
         onNewTemplate={() => {
           useTabStore.getState().openNewTemplateTab()
@@ -208,7 +206,7 @@ export function EditorPage() {
       </div>
 
       <NewDesignDialog open={showNewDialog} onOpenChange={setShowNewDialog} />
-      <LoadDialog open={showLoadDialog} onOpenChange={setShowLoadDialog} />
+      <LoadDialog open={showImportDialog} onOpenChange={setShowImportDialog} />
       <SaveDialog open={showSaveDialog} onOpenChange={setShowSaveDialog} onSave={handleSaveDialogConfirm} />
       <SaveCompositionDialog
         open={showSaveTemplateDialog}
