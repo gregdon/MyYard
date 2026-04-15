@@ -116,6 +116,37 @@ export function useDesignIO() {
     toast.success(`Opened: ${designData.name}`)
   }, [])
 
+  /** Save As — always creates a new cloud copy (new name, no cloudDesignId) */
+  const saveAsCloud = useCallback(async (name: string, description: string): Promise<'saved' | 'no-auth'> => {
+    const user = useAuthStore.getState().user
+    if (!user) {
+      toast.error('Sign in to save designs')
+      return 'no-auth'
+    }
+
+    const tab = useTabStore.getState().getActiveTab()
+    if (!tab || tab.type !== 'design') return 'no-auth'
+
+    const ds = useDesignStore.getState()
+    const gridSettings = ds.gridSettings
+    const versionData = getVersionData()
+
+    const meta = await useDesignCloudStore.getState().createDesign(
+      user.id,
+      name,
+      description,
+      gridSettings,
+      versionData,
+    )
+    // Link this tab to the new cloud design
+    useTabStore.getState().setTabCloudDesignId(tab.id, meta.id)
+    ds.setMetadata({ name })
+    useTabStore.getState().setTabTitle(tab.id, name)
+    useTabStore.getState().markActiveSaved()
+    toast.success('Design saved as copy')
+    return 'saved'
+  }, [])
+
   // ── File Import/Export (unchanged) ───────────────────────────────
 
   /** Export design as JSON file download */
@@ -155,6 +186,7 @@ export function useDesignIO() {
   return {
     saveDesign,
     saveToCloud,
+    saveAsCloud,
     openCloudDesign,
     exportDesign,
     importDesign,

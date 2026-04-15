@@ -16,9 +16,10 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSave: (name: string, description: string) => void
+  title?: string
 }
 
-export function SaveDialog({ open, onOpenChange, onSave }: Props) {
+export function SaveDialog({ open, onOpenChange, onSave, title = 'Save Design' }: Props) {
   const currentName = useDesignStore((s) => s.metadata.name)
   const [name, setName] = useState(currentName)
   const [description, setDescription] = useState('')
@@ -41,7 +42,7 @@ export function SaveDialog({ open, onOpenChange, onSave }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Save Design</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">

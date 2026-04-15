@@ -1,14 +1,16 @@
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { Save, Download, Upload } from 'lucide-react'
+import { Separator } from '@/components/ui/separator'
+import { Save, SaveAll, Download, Upload } from 'lucide-react'
 
 interface RibbonFileTabProps {
   onSave: () => void
+  onSaveAs: () => void
   onExport: () => void
   onImport: () => void
 }
 
-export function RibbonFileTab({ onSave, onExport, onImport }: RibbonFileTabProps) {
+export function RibbonFileTab({ onSave, onSaveAs, onExport, onImport }: RibbonFileTabProps) {
   return (
     <>
       <Tooltip>
@@ -21,12 +23,13 @@ export function RibbonFileTab({ onSave, onExport, onImport }: RibbonFileTabProps
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onExport}>
-            <Download className="h-4 w-4" />
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onSaveAs}>
+            <SaveAll className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Export to file</TooltipContent>
+        <TooltipContent>Save As (new copy)</TooltipContent>
       </Tooltip>
+      <Separator orientation="vertical" className="h-5" />
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onImport}>
@@ -34,6 +37,14 @@ export function RibbonFileTab({ onSave, onExport, onImport }: RibbonFileTabProps
           </Button>
         </TooltipTrigger>
         <TooltipContent>Import from file</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onExport}>
+            <Download className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Export to file</TooltipContent>
       </Tooltip>
     </>
   )

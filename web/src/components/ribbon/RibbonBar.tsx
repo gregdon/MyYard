@@ -25,6 +25,7 @@ interface MenuTabDef {
 
 interface RibbonBarProps {
   onSave: () => void
+  onSaveAs: () => void
   onExport: () => void
   onImport: () => void
   onNewDesign: () => void
@@ -39,6 +40,7 @@ interface RibbonBarProps {
 
 export function RibbonBar({
   onSave,
+  onSaveAs,
   onExport,
   onImport,
   onNewDesign,
@@ -121,7 +123,7 @@ export function RibbonBar({
 
         {/* Tab-specific commands */}
         {activeRibbonTab === 'file' && (
-          <RibbonFileTab onSave={onSave} onExport={onExport} onImport={onImport} />
+          <RibbonFileTab onSave={onSave} onSaveAs={onSaveAs} onExport={onExport} onImport={onImport} />
         )}
         {activeRibbonTab === 'home' && (
           <RibbonHomeTab onNewDesign={onNewDesign} onNewTemplate={onNewTemplate} />

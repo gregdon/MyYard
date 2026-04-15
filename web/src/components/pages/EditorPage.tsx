@@ -34,11 +34,12 @@ export function EditorPage() {
   const closeTab = useTabStore((s) => s.closeTab)
   const tabs = useTabStore((s) => s.tabs)
 
-  const { saveDesign, saveToCloud, exportDesign } = useDesignIO()
+  const { saveDesign, saveToCloud, saveAsCloud, exportDesign } = useDesignIO()
   useKeyboardShortcuts()
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
+  const [showSaveAsDialog, setShowSaveAsDialog] = useState(false)
   const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false)
   const [closeTabAfterTemplateSave, setCloseTabAfterTemplateSave] = useState(false)
 
@@ -60,6 +61,10 @@ export function EditorPage() {
   const handleSaveDialogConfirm = useCallback(async (name: string, description: string) => {
     await saveToCloud(name, description)
   }, [saveToCloud])
+
+  const handleSaveAsDialogConfirm = useCallback(async (name: string, description: string) => {
+    await saveAsCloud(name, description)
+  }, [saveAsCloud])
 
   const handleExport = useCallback(() => {
     exportDesign()
@@ -133,6 +138,7 @@ export function EditorPage() {
       {/* Ribbon — always visible */}
       <RibbonBar
         onSave={handleSave}
+        onSaveAs={() => setShowSaveAsDialog(true)}
         onExport={handleExport}
         onImport={() => setShowImportDialog(true)}
         onNewDesign={() => setShowNewDialog(true)}
@@ -208,6 +214,7 @@ export function EditorPage() {
       <NewDesignDialog open={showNewDialog} onOpenChange={setShowNewDialog} />
       <LoadDialog open={showImportDialog} onOpenChange={setShowImportDialog} />
       <SaveDialog open={showSaveDialog} onOpenChange={setShowSaveDialog} onSave={handleSaveDialogConfirm} />
+      <SaveDialog open={showSaveAsDialog} onOpenChange={setShowSaveAsDialog} onSave={handleSaveAsDialogConfirm} title="Save As Copy" />
       <SaveCompositionDialog
         open={showSaveTemplateDialog}
         onOpenChange={setShowSaveTemplateDialog}
